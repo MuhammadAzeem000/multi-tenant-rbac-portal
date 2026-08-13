@@ -7,10 +7,287 @@ datasource db {
   provider = "postgresql"
 }
 
+model Tenant {
+  id          BigInt  @id @default(autoincrement())
+  name        String  @db.VarChar(150)
+  slug        String  @unique @db.VarChar(100)
+  code        String? @unique @db.VarChar(50)
+  description String? @db.Text
+  logoUrl     String? @map("logo_url") @db.VarChar(500)
+  websiteUrl  String? @map("website_url") @db.VarChar(500)
+  email       String? @db.VarChar(255)
+  phone       String? @db.VarChar(50)
+  timezone    String? @db.VarChar(100)
+  locale      String? @db.VarChar(20)
+  currency    String? @db.VarChar(10)
+
+  status   String  @default("active") @db.VarChar(30)
+  isActive Boolean @default(true) @map("is_active")
+
+  settings Json? @db.Json
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  users           User[]
+  departments     Department[]
+  roles           Role[]
+  permissions     Permission[]
+  userRoles       UserRole[]
+  userDepartments UserDepartment[]
+  rolePermissions RolePermission[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id       BigInt @id @default(autoincrement())
+  tenantId BigInt @map("tenant_id")
+
+  name         String  @db.VarChar(150)
+  username     String  @db.VarChar(100)
+  email        String  @db.VarChar(255)
+  phone        String? @db.VarChar(50)
+  passwordHash String? @map("password_hash") @db.VarChar(255)
+
+  avatarUrl    String? @map("avatar_url") @db.VarChar(500)
+  jobTitle     String? @map("job_title") @db.VarChar(150)
+  employeeCode String? @map("employee_code") @db.VarChar(100)
+
+  status          String    @default("active") @db.VarChar(30)
+  isActive        Boolean   @default(true) @map("is_active")
+  isVerified      Boolean   @default(false) @map("is_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamp(6)
+  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamp(6)
+
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamp(6)
+  lastLoginIp String?   @map("last_login_ip") @db.VarChar(45)
+
+  timezone String? @db.VarChar(100)
+  locale   String? @db.VarChar(20)
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  userRoles       UserRole[]
+  userDepartments UserDepartment[]
+
+  @@unique([tenantId, username])
+  @@unique([tenantId, email])
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId])
+  @@index([status])
+  @@map("users")
+}
+
+model Department {
+  id       BigInt @id @default(autoincrement())
+  tenantId BigInt @map("tenant_id")
+
+  name        String  @db.VarChar(150)
+  code        String? @db.VarChar(50)
+  description String? @db.Text
+
+  status   String  @default("active") @db.VarChar(30)
+  isActive Boolean @default(true) @map("is_active")
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  userDepartments UserDepartment[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("departments")
+}
+
+model Role {
+  id       BigInt @id @default(autoincrement())
+  tenantId BigInt @map("tenant_id")
+
+  name        String  @db.VarChar(100)
+  code        String? @db.VarChar(100)
+  description String? @db.Text
+
+  isSystem  Boolean @default(false) @map("is_system")
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
+
+  priority Int @default(0)
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("roles")
+}
+
+model Module {
+  id BigInt @id @default(autoincrement())
+
+  name        String  @db.VarChar(100)
+  code        String  @unique @db.VarChar(100)
+  description String? @db.Text
+
+  icon      String? @db.VarChar(100)
+  route     String? @db.VarChar(255)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  isSystem Boolean @default(false) @map("is_system")
+  isActive Boolean @default(true) @map("is_active")
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  permissions Permission[]
+
+  @@index([isActive])
+  @@map("modules")
+}
+
+model Action {
+  id BigInt @id @default(autoincrement())
+
+  name        String  @db.VarChar(100)
+  code        String  @unique @db.VarChar(100)
+  description String? @db.Text
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  isSystem Boolean @default(false) @map("is_system")
+  isActive Boolean @default(true) @map("is_active")
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  permissions Permission[]
+
+  @@index([isActive])
+  @@map("actions")
+}
+
+model Permission {
+  id       BigInt @id @default(autoincrement())
+  tenantId BigInt @map("tenant_id")
+
+  moduleId BigInt @map("module_id")
+  actionId BigInt @map("action_id")
+
+  name        String  @db.VarChar(150)
+  code        String  @db.VarChar(150)
+  description String? @db.Text
+
+  isSystem Boolean @default(false) @map("is_system")
+  isActive Boolean @default(true) @map("is_active")
+
+  metadata Json? @db.Json
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
+  action Action @relation(fields: [actionId], references: [id])
+
+  rolePermissions RolePermission[]
+
+  @@unique([tenantId, moduleId, actionId])
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([moduleId])
+  @@index([actionId])
+  @@index([isActive])
+  @@map("permissions")
+}
+
+model UserRole {
+  tenantId BigInt @map("tenant_id")
+  userId   BigInt @map("user_id")
+  roleId   BigInt @map("role_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy BigInt?  @map("created_by")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@id([tenantId, userId, roleId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model UserDepartment {
+  tenantId     BigInt @map("tenant_id")
+  userId       BigInt @map("user_id")
+  departmentId BigInt @map("department_id")
+
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy BigInt?  @map("created_by")
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@id([tenantId, userId, departmentId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([departmentId])
+  @@map("user_departments")
+}
+
+model RolePermission {
+  tenantId     BigInt @map("tenant_id")
+  roleId       BigInt @map("role_id")
+  permissionId BigInt @map("permission_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy BigInt?  @map("created_by")
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([tenantId, roleId, permissionId])
+  @@index([tenantId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
