@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { loginSchema, refreshSchema } from "../interfaces/auth";
+import { loginSchema, refreshSchema, registerSchema } from "../interfaces/auth";
 import * as authService from "../services/auth.service";
 import * as userService from "../services/user.service";
 
@@ -18,6 +18,17 @@ export async function login(req: Request, res: Response) {
   }
 
   res.json({ ...outcome.tokens, user: outcome.user });
+}
+
+export async function register(req: Request, res: Response) {
+  const result = registerSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: z.flattenError(result.error) });
+    return;
+  }
+
+  const outcome = await authService.register(result.data);
+  res.status(201).json({ ...outcome.tokens, user: outcome.user });
 }
 
 export async function refresh(req: Request, res: Response) {

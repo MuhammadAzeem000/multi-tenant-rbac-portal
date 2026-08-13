@@ -7,6 +7,7 @@ import { prisma } from "../config/prisma";
 import * as authService from "../services/auth.service";
 import * as authController from "../controllers/auth.controller";
 import { authenticate } from "../middlewares/authenticate";
+import { provisionTenant } from "../services/tenantProvisioning.service";
 
 jest.mock("../config/prisma", () => ({
   prisma: {
@@ -18,6 +19,8 @@ jest.mock("../config/prisma", () => ({
 jest.mock("bcryptjs", () => ({
   compare: jest.fn(),
 }));
+
+jest.mock("../services/tenantProvisioning.service");
 
 const mockedPrisma = prisma as unknown as {
   tenant: { findFirst: jest.Mock };
@@ -105,6 +108,41 @@ describe("auth.service login", () => {
   });
 });
 
+describe("auth.service register", () => {
+  const registerInput = {
+    tenantName: "Acme Corp",
+    tenantSlug: "acme",
+    adminName: "Alice Admin",
+    adminUsername: "alice",
+    adminEmail: "alice@acme.test",
+    adminPassword: "supersecret",
+  };
+
+  it("provisions the tenant and issues tokens for the new admin", async () => {
+    (provisionTenant as jest.Mock).mockResolvedValue({
+      tenant: { id: 1n, slug: "acme" },
+      user: { id: 2n, tenantId: 1n, username: "alice", email: "alice@acme.test" },
+    });
+
+    const result = await authService.register(registerInput);
+
+    expect(provisionTenant).toHaveBeenCalledWith({
+      tenantName: "Acme Corp",
+      tenantSlug: "acme",
+      adminName: "Alice Admin",
+      adminUsername: "alice",
+      adminEmail: "alice@acme.test",
+      adminPassword: "supersecret",
+    });
+    expect(result.tokens.tokenType).toBe("Bearer");
+    expect(result.user).not.toHaveProperty("passwordHash");
+
+    const decoded = jwt.verify(result.tokens.accessToken, env.JWT_ACCESS_SECRET) as jwt.JwtPayload;
+    expect(decoded.sub).toBe("2");
+    expect(decoded.tenantId).toBe("1");
+  });
+});
+
 describe("auth.service refreshAccessToken", () => {
   it("returns null for a garbage token", async () => {
     const result = await authService.refreshAccessToken("not-a-real-token");
@@ -165,6 +203,47 @@ describe("auth.controller", () => {
     await authController.refresh(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("register responds 400 for an invalid tenant slug", async () => {
+    const req = {
+      body: {
+        tenantName: "Acme Corp",
+        tenantSlug: "Not A Valid Slug!",
+        adminName: "Alice",
+        adminUsername: "alice",
+        adminEmail: "alice@acme.test",
+        adminPassword: "supersecret",
+      },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await authController.register(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(provisionTenant).not.toHaveBeenCalled();
+  });
+
+  it("register responds 201 with tokens on success", async () => {
+    (provisionTenant as jest.Mock).mockResolvedValue({
+      tenant: { id: 1n, slug: "acme" },
+      user: { id: 2n, tenantId: 1n, username: "alice", email: "alice@acme.test" },
+    });
+    const req = {
+      body: {
+        tenantName: "Acme Corp",
+        tenantSlug: "acme",
+        adminName: "Alice",
+        adminUsername: "alice",
+        adminEmail: "alice@acme.test",
+        adminPassword: "supersecret",
+      },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await authController.register(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 });
 

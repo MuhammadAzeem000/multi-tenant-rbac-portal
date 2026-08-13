@@ -4,7 +4,29 @@ import { authApi } from '@/api/auth.api'
 import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
-import type { LoginRequest } from '@/types/auth'
+import type { LoginRequest, RegisterRequest } from '@/types/auth'
+
+export function useRegister() {
+  const setSession = useAuthStore((state) => state.setSession)
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: (payload: RegisterRequest) => authApi.register(payload),
+    onSuccess: (data, variables) => {
+      setSession({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        tenantSlug: variables.tenantSlug,
+        user: data.user,
+      })
+      toast.success('Organization created')
+      navigate('/', { replace: true })
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Could not create your organization'))
+    },
+  })
+}
 
 export function useLogin() {
   const setSession = useAuthStore((state) => state.setSession)

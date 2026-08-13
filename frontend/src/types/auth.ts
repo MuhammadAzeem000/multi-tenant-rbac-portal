@@ -6,6 +6,15 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  tenantName: string
+  tenantSlug: string
+  adminName: string
+  adminUsername: string
+  adminEmail: string
+  adminPassword: string
+}
+
 export interface AuthTokens {
   accessToken: string
   refreshToken: string

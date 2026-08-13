@@ -29,11 +29,11 @@ app.get("/", (_req: Request, res: Response) => {
     res.send("Hello Docker World!");
 });
 
-// Public: login/refresh issue tokens; tenant provisioning has no session to gate it on yet.
+// Public: login/register/refresh are how a session gets created in the first place.
 app.use("/api/auth", authRouter);
-app.use("/api/tenants", tenantRouter);
 
 // Everything else requires a valid access token.
+app.use("/api/tenants", authenticate, tenantRouter);
 app.use("/api/users", authenticate, userRouter);
 app.use("/api/departments", authenticate, departmentRouter);
 app.use("/api/roles", authenticate, roleRouter);

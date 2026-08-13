@@ -1,8 +1,10 @@
 import { api } from '@/lib/api'
-import type { AuthTokens, LoginRequest, LoginResponse } from '@/types/auth'
+import type { AuthTokens, LoginRequest, LoginResponse, RegisterRequest } from '@/types/auth'
 import type { User } from '@/types/user'
 
 export const authApi = {
+  register: (payload: RegisterRequest) =>
+    api.post<LoginResponse>('/auth/register', payload).then((r) => r.data),
   login: (payload: LoginRequest) => api.post<LoginResponse>('/auth/login', payload).then((r) => r.data),
   refresh: (refreshToken: string) =>
     api.post<AuthTokens>('/auth/refresh', { refreshToken }).then((r) => r.data),

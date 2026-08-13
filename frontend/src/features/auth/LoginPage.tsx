@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ShieldHalf } from 'lucide-react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import { z } from 'zod'
 import { Button } from '@/components/ui/Button'
 import { FormField } from '@/components/ui/FormField'
@@ -78,6 +79,13 @@ export function LoginPage() {
           <Button type="submit" variant="primary" size="md" loading={login.isPending} className="mt-1 w-full">
             Sign in
           </Button>
+
+          <p className="text-center text-xs text-slate-500">
+            New here?{' '}
+            <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700">
+              Create an organization
+            </Link>
+          </p>
         </form>
       </div>
     </div>

@@ -2,8 +2,9 @@ import bcrypt from "bcryptjs";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
 import { prisma } from "../config/prisma";
-import { AccessTokenClaims, AuthTokens, LoginInput, RefreshTokenClaims } from "../interfaces/auth";
+import { AccessTokenClaims, AuthTokens, LoginInput, RefreshTokenClaims, RegisterInput } from "../interfaces/auth";
 import { UserResponse } from "../interfaces/user";
+import { provisionTenant } from "./tenantProvisioning.service";
 
 const credentialSelect = {
   id: true,
@@ -96,6 +97,20 @@ export async function login(
   const { passwordHash: _passwordHash, ...safeUser } = user;
   const tokens = issueTokens(safeUser);
   return { tokens, user: safeUser };
+}
+
+export async function register(input: RegisterInput): Promise<{ tokens: AuthTokens; user: UserResponse }> {
+  const { tenant: _tenant, user } = await provisionTenant({
+    tenantName: input.tenantName,
+    tenantSlug: input.tenantSlug,
+    adminName: input.adminName,
+    adminUsername: input.adminUsername,
+    adminEmail: input.adminEmail,
+    adminPassword: input.adminPassword,
+  });
+
+  const tokens = issueTokens(user);
+  return { tokens, user };
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
