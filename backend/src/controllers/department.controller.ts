@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createDepartmentSchema, updateDepartmentSchema } from "../interfaces/department";
 import * as departmentService from "../services/department.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,13 +14,17 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getDepartments(req: Request, res: Response) {
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
   const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
   if (req.query.tenantId && tenantId === null) {
     res.status(400).json({ error: "Invalid tenantId" });
     return;
   }
-  const departments = await departmentService.getDepartments(tenantId ?? undefined);
-  res.json(departments);
+
+  const result = await departmentService.getDepartments({ tenantId: tenantId ?? undefined, ...pagination });
+  res.json(result);
 }
 
 export async function getDepartmentById(req: Request, res: Response) {

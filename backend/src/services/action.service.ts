@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { ActionResponse, CreateActionInput, UpdateActionInput } from "../interfaces/action";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const actionSelect = {
   id: true,
@@ -13,12 +14,19 @@ const actionSelect = {
   updatedAt: true,
 } as const;
 
-export function getActions(): Promise<ActionResponse[]> {
-  return prisma.action.findMany({
-    where: { deletedAt: null },
-    select: actionSelect,
-    orderBy: { sortOrder: "asc" },
-  });
+export async function getActions(params: {
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<ActionResponse>> {
+  const where = { deletedAt: null };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.action.findMany({ where, select: actionSelect, orderBy: { sortOrder: "asc" }, skip, take }),
+    prisma.action.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getActionById(id: bigint): Promise<ActionResponse | null> {

@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 import { CreateRoleInput, RoleResponse, UpdateRoleInput } from "../interfaces/role";
 
 const roleSelect = {
@@ -15,12 +16,20 @@ const roleSelect = {
   updatedAt: true,
 } as const;
 
-export function getRoles(tenantId?: bigint): Promise<RoleResponse[]> {
-  return prisma.role.findMany({
-    where: { deletedAt: null, ...(tenantId !== undefined && { tenantId }) },
-    select: roleSelect,
-    orderBy: { priority: "desc" },
-  });
+export async function getRoles(params: {
+  tenantId?: bigint;
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<RoleResponse>> {
+  const where = { deletedAt: null, ...(params.tenantId !== undefined && { tenantId: params.tenantId }) };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.role.findMany({ where, select: roleSelect, orderBy: { priority: "desc" }, skip, take }),
+    prisma.role.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getRoleById(id: bigint): Promise<RoleResponse | null> {

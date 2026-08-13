@@ -4,7 +4,7 @@ import { bigIntId } from "../interfaces/common";
 import * as departmentService from "../services/department.service";
 import * as userDepartmentService from "../services/userDepartment.service";
 import * as userService from "../services/user.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 const assignDepartmentSchema = z.object({
   departmentId: bigIntId,
@@ -18,14 +18,17 @@ export async function getDepartmentsForUser(req: Request, res: Response) {
     return;
   }
 
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
   const user = await userService.getUserById(userId);
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  const departments = await userDepartmentService.getDepartmentsForUser(userId);
-  res.json(departments);
+  const result = await userDepartmentService.getDepartmentsForUser(userId, pagination);
+  res.json(result);
 }
 
 export async function assignDepartmentToUser(req: Request, res: Response) {

@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { CreatePermissionInput, PermissionResponse, UpdatePermissionInput } from "../interfaces/permission";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const permissionSelect = {
   id: true,
@@ -15,12 +16,20 @@ const permissionSelect = {
   updatedAt: true,
 } as const;
 
-export function getPermissions(tenantId?: bigint): Promise<PermissionResponse[]> {
-  return prisma.permission.findMany({
-    where: { deletedAt: null, ...(tenantId !== undefined && { tenantId }) },
-    select: permissionSelect,
-    orderBy: { id: "asc" },
-  });
+export async function getPermissions(params: {
+  tenantId?: bigint;
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<PermissionResponse>> {
+  const where = { deletedAt: null, ...(params.tenantId !== undefined && { tenantId: params.tenantId }) };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.permission.findMany({ where, select: permissionSelect, orderBy: { id: "asc" }, skip, take }),
+    prisma.permission.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getPermissionById(id: bigint): Promise<PermissionResponse | null> {

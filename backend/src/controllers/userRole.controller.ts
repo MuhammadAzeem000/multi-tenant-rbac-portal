@@ -4,7 +4,7 @@ import { bigIntId } from "../interfaces/common";
 import * as roleService from "../services/role.service";
 import * as userRoleService from "../services/userRole.service";
 import * as userService from "../services/user.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 const assignRoleSchema = z.object({ roleId: bigIntId });
 
@@ -15,14 +15,17 @@ export async function getRolesForUser(req: Request, res: Response) {
     return;
   }
 
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
   const user = await userService.getUserById(userId);
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  const roles = await userRoleService.getRolesForUser(userId);
-  res.json(roles);
+  const result = await userRoleService.getRolesForUser(userId, pagination);
+  res.json(result);
 }
 
 export async function assignRoleToUser(req: Request, res: Response) {

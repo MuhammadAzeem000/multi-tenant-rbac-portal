@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const permissionSelect = {
   id: true,
@@ -8,14 +9,35 @@ const permissionSelect = {
   actionId: true,
 } as const;
 
-export function getPermissionsForRole(roleId: bigint) {
-  return prisma.rolePermission
-    .findMany({
-      where: { roleId },
+export async function getPermissionsForRole(
+  roleId: bigint,
+  params: { page: number; pageSize: number },
+): Promise<
+  PaginatedResult<{
+    id: bigint;
+    name: string;
+    code: string;
+    moduleId: bigint;
+    actionId: bigint;
+    assignedAt: Date;
+  }>
+> {
+  const where = { roleId };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [rows, total] = await Promise.all([
+    prisma.rolePermission.findMany({
+      where,
       include: { permission: { select: permissionSelect } },
       orderBy: { createdAt: "asc" },
-    })
-    .then((rows) => rows.map((row) => ({ ...row.permission, assignedAt: row.createdAt })));
+      skip,
+      take,
+    }),
+    prisma.rolePermission.count({ where }),
+  ]);
+
+  const data = rows.map((row) => ({ ...row.permission, assignedAt: row.createdAt }));
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function assignPermissionToRole(tenantId: bigint, roleId: bigint, permissionId: bigint) {

@@ -60,6 +60,31 @@ describe("userRole associations", () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  it("paginates the list of roles assigned to a user", async () => {
+    (userService.getUserById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (userRoleService.getRolesForUser as jest.Mock).mockResolvedValue({
+      data: [],
+      pagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 },
+    });
+
+    const req = { params: { id: "1" }, query: {} } as unknown as Request;
+    const res = mockRes();
+
+    await userRoleController.getRolesForUser(req, res);
+
+    expect(userRoleService.getRolesForUser).toHaveBeenCalledWith(1n, { page: 1, pageSize: 20 });
+  });
+
+  it("rejects an invalid pageSize before checking the user exists", async () => {
+    const req = { params: { id: "1" }, query: { pageSize: "1000" } } as unknown as Request;
+    const res = mockRes();
+
+    await userRoleController.getRolesForUser(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(userService.getUserById).not.toHaveBeenCalled();
+  });
 });
 
 describe("rolePermission associations", () => {
@@ -91,5 +116,20 @@ describe("rolePermission associations", () => {
 
     expect(rolePermissionService.assignPermissionToRole).toHaveBeenCalledWith(1n, 1n, 2n);
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("paginates the list of permissions assigned to a role", async () => {
+    (roleService.getRoleById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (rolePermissionService.getPermissionsForRole as jest.Mock).mockResolvedValue({
+      data: [],
+      pagination: { page: 2, pageSize: 10, total: 15, totalPages: 2 },
+    });
+
+    const req = { params: { id: "1" }, query: { page: "2", pageSize: "10" } } as unknown as Request;
+    const res = mockRes();
+
+    await rolePermissionController.getPermissionsForRole(req, res);
+
+    expect(rolePermissionService.getPermissionsForRole).toHaveBeenCalledWith(1n, { page: 2, pageSize: 10 });
   });
 });

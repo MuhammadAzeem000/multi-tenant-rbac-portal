@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { CreateDepartmentInput, DepartmentResponse, UpdateDepartmentInput } from "../interfaces/department";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const departmentSelect = {
   id: true,
@@ -14,12 +15,20 @@ const departmentSelect = {
   updatedAt: true,
 } as const;
 
-export function getDepartments(tenantId?: bigint): Promise<DepartmentResponse[]> {
-  return prisma.department.findMany({
-    where: { deletedAt: null, ...(tenantId !== undefined && { tenantId }) },
-    select: departmentSelect,
-    orderBy: { sortOrder: "asc" },
-  });
+export async function getDepartments(params: {
+  tenantId?: bigint;
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<DepartmentResponse>> {
+  const where = { deletedAt: null, ...(params.tenantId !== undefined && { tenantId: params.tenantId }) };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.department.findMany({ where, select: departmentSelect, orderBy: { sortOrder: "asc" }, skip, take }),
+    prisma.department.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getDepartmentById(id: bigint): Promise<DepartmentResponse | null> {

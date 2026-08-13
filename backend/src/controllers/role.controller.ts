@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRoleSchema, updateRoleSchema } from "../interfaces/role";
 import * as roleService from "../services/role.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,13 +14,17 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getRoles(req: Request, res: Response) {
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
   const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
   if (req.query.tenantId && tenantId === null) {
     res.status(400).json({ error: "Invalid tenantId" });
     return;
   }
-  const roles = await roleService.getRoles(tenantId ?? undefined);
-  res.json(roles);
+
+  const result = await roleService.getRoles({ tenantId: tenantId ?? undefined, ...pagination });
+  res.json(result);
 }
 
 export async function getRoleById(req: Request, res: Response) {

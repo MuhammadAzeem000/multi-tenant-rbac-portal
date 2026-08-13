@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -33,21 +35,38 @@ function mockRes() {
 }
 
 describe("user.service", () => {
-  it("getUsers filters out soft-deleted users", async () => {
+  it("getUsers filters out soft-deleted users and paginates", async () => {
     mockedPrisma.user.findMany.mockResolvedValue([{ id: 1n, name: "Alice" }]);
-    const users = await userService.getUsers();
+    mockedPrisma.user.count.mockResolvedValue(1);
+
+    const result = await userService.getUsers({ page: 1, pageSize: 20 });
+
     expect(mockedPrisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null } }),
+      expect.objectContaining({ where: { deletedAt: null }, skip: 0, take: 20 }),
     );
-    expect(users).toEqual([{ id: 1n, name: "Alice" }]);
+    expect(result.data).toEqual([{ id: 1n, name: "Alice" }]);
+    expect(result.pagination).toEqual({ page: 1, pageSize: 20, total: 1, totalPages: 1 });
   });
 
   it("getUsers scopes by tenantId when provided", async () => {
     mockedPrisma.user.findMany.mockResolvedValue([]);
-    await userService.getUsers(5n);
+    mockedPrisma.user.count.mockResolvedValue(0);
+
+    await userService.getUsers({ tenantId: 5n, page: 1, pageSize: 20 });
+
     expect(mockedPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { deletedAt: null, tenantId: 5n } }),
     );
+  });
+
+  it("getUsers computes skip from the page number", async () => {
+    mockedPrisma.user.findMany.mockResolvedValue([]);
+    mockedPrisma.user.count.mockResolvedValue(45);
+
+    const result = await userService.getUsers({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40, take: 20 }));
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("getUserById returns null when not found", async () => {

@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -33,13 +35,29 @@ function mockRes() {
 }
 
 describe("tenant.service", () => {
-  it("getTenants filters out soft-deleted tenants", async () => {
+  it("getTenants filters out soft-deleted tenants and paginates", async () => {
     mockedPrisma.tenant.findMany.mockResolvedValue([{ id: 1n, name: "Acme" }]);
-    const tenants = await tenantService.getTenants();
+    mockedPrisma.tenant.count.mockResolvedValue(1);
+
+    const result = await tenantService.getTenants({ page: 1, pageSize: 20 });
+
     expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null } }),
+      expect.objectContaining({ where: { deletedAt: null }, skip: 0, take: 20 }),
     );
-    expect(tenants).toEqual([{ id: 1n, name: "Acme" }]);
+    expect(result.data).toEqual([{ id: 1n, name: "Acme" }]);
+    expect(result.pagination).toEqual({ page: 1, pageSize: 20, total: 1, totalPages: 1 });
+  });
+
+  it("getTenants computes skip from the page number", async () => {
+    mockedPrisma.tenant.findMany.mockResolvedValue([]);
+    mockedPrisma.tenant.count.mockResolvedValue(45);
+
+    const result = await tenantService.getTenants({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 40, take: 20 }),
+    );
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("getTenantById returns null when not found", async () => {
@@ -78,5 +96,28 @@ describe("tenant.controller", () => {
     await tenantController.getTenantById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("getTenants responds 400 for an out-of-range pageSize", async () => {
+    const req = { query: { pageSize: "1000" } } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.getTenants(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mockedPrisma.tenant.findMany).not.toHaveBeenCalled();
+  });
+
+  it("getTenants defaults to page 1 / pageSize 20", async () => {
+    mockedPrisma.tenant.findMany.mockResolvedValue([]);
+    mockedPrisma.tenant.count.mockResolvedValue(0);
+    const req = { query: {} } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.getTenants(req, res);
+
+    expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 20 }),
+    );
   });
 });

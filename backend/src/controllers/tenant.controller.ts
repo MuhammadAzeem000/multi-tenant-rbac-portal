@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createTenantSchema, updateTenantSchema } from "../interfaces/tenant";
 import * as tenantService from "../services/tenant.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -13,9 +13,12 @@ function parseId(req: Request, res: Response): bigint | null {
   return id;
 }
 
-export async function getTenants(_req: Request, res: Response) {
-  const tenants = await tenantService.getTenants();
-  res.json(tenants);
+export async function getTenants(req: Request, res: Response) {
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
+  const result = await tenantService.getTenants(pagination);
+  res.json(result);
 }
 
 export async function getTenantById(req: Request, res: Response) {

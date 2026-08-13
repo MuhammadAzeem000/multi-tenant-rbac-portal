@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -35,10 +37,25 @@ function mockRes() {
 describe("department.service", () => {
   it("getDepartments scopes by tenantId when provided", async () => {
     mockedPrisma.department.findMany.mockResolvedValue([]);
-    await departmentService.getDepartments(5n);
+    mockedPrisma.department.count.mockResolvedValue(0);
+
+    await departmentService.getDepartments({ tenantId: 5n, page: 1, pageSize: 20 });
+
     expect(mockedPrisma.department.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n } }),
+      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n }, skip: 0, take: 20 }),
     );
+  });
+
+  it("getDepartments computes skip from the page number", async () => {
+    mockedPrisma.department.findMany.mockResolvedValue([]);
+    mockedPrisma.department.count.mockResolvedValue(45);
+
+    const result = await departmentService.getDepartments({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.department.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 40, take: 20 }),
+    );
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("deleteDepartment soft-deletes instead of removing the row", async () => {

@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -33,12 +35,27 @@ function mockRes() {
 }
 
 describe("action.service", () => {
-  it("getActions filters out soft-deleted actions", async () => {
+  it("getActions filters out soft-deleted actions and paginates", async () => {
     mockedPrisma.action.findMany.mockResolvedValue([]);
-    await actionService.getActions();
+    mockedPrisma.action.count.mockResolvedValue(0);
+
+    await actionService.getActions({ page: 1, pageSize: 20 });
+
     expect(mockedPrisma.action.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null } }),
+      expect.objectContaining({ where: { deletedAt: null }, skip: 0, take: 20 }),
     );
+  });
+
+  it("getActions computes skip from the page number", async () => {
+    mockedPrisma.action.findMany.mockResolvedValue([]);
+    mockedPrisma.action.count.mockResolvedValue(45);
+
+    const result = await actionService.getActions({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.action.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 40, take: 20 }),
+    );
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("deleteAction soft-deletes instead of removing the row", async () => {

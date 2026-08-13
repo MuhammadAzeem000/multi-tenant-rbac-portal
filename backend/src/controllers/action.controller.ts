@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createActionSchema, updateActionSchema } from "../interfaces/action";
 import * as actionService from "../services/action.service";
-import { parseBigIntId } from "../utils";
+import { parseBigIntId, parsePagination } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -13,9 +13,12 @@ function parseId(req: Request, res: Response): bigint | null {
   return id;
 }
 
-export async function getActions(_req: Request, res: Response) {
-  const actions = await actionService.getActions();
-  res.json(actions);
+export async function getActions(req: Request, res: Response) {
+  const pagination = parsePagination(req, res);
+  if (!pagination) return;
+
+  const result = await actionService.getActions(pagination);
+  res.json(result);
 }
 
 export async function getActionById(req: Request, res: Response) {

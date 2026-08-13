@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { Prisma } from "../generated/prisma/client";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 import { CreateTenantInput, TenantResponse, UpdateTenantInput } from "../interfaces/tenant";
 
 const tenantSelect = {
@@ -23,12 +24,19 @@ const tenantSelect = {
   updatedAt: true,
 } as const;
 
-export function getTenants(): Promise<TenantResponse[]> {
-  return prisma.tenant.findMany({
-    where: { deletedAt: null },
-    select: tenantSelect,
-    orderBy: { id: "asc" },
-  });
+export async function getTenants(params: {
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<TenantResponse>> {
+  const where = { deletedAt: null };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.tenant.findMany({ where, select: tenantSelect, orderBy: { id: "asc" }, skip, take }),
+    prisma.tenant.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getTenantById(id: bigint): Promise<TenantResponse | null> {

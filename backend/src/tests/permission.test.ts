@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -35,10 +37,25 @@ function mockRes() {
 describe("permission.service", () => {
   it("getPermissions scopes by tenantId when provided", async () => {
     mockedPrisma.permission.findMany.mockResolvedValue([]);
-    await permissionService.getPermissions(5n);
+    mockedPrisma.permission.count.mockResolvedValue(0);
+
+    await permissionService.getPermissions({ tenantId: 5n, page: 1, pageSize: 20 });
+
     expect(mockedPrisma.permission.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n } }),
+      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n }, skip: 0, take: 20 }),
     );
+  });
+
+  it("getPermissions computes skip from the page number", async () => {
+    mockedPrisma.permission.findMany.mockResolvedValue([]);
+    mockedPrisma.permission.count.mockResolvedValue(45);
+
+    const result = await permissionService.getPermissions({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.permission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 40, take: 20 }),
+    );
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("deletePermission soft-deletes instead of removing the row", async () => {

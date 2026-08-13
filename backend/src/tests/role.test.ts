@@ -11,6 +11,7 @@ jest.mock("../config/prisma", () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -35,10 +37,23 @@ function mockRes() {
 describe("role.service", () => {
   it("getRoles scopes by tenantId when provided", async () => {
     mockedPrisma.role.findMany.mockResolvedValue([]);
-    await roleService.getRoles(5n);
+    mockedPrisma.role.count.mockResolvedValue(0);
+
+    await roleService.getRoles({ tenantId: 5n, page: 1, pageSize: 20 });
+
     expect(mockedPrisma.role.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n } }),
+      expect.objectContaining({ where: { deletedAt: null, tenantId: 5n }, skip: 0, take: 20 }),
     );
+  });
+
+  it("getRoles computes skip from the page number", async () => {
+    mockedPrisma.role.findMany.mockResolvedValue([]);
+    mockedPrisma.role.count.mockResolvedValue(45);
+
+    const result = await roleService.getRoles({ page: 3, pageSize: 20 });
+
+    expect(mockedPrisma.role.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40, take: 20 }));
+    expect(result.pagination.totalPages).toBe(3);
   });
 
   it("deleteRole soft-deletes instead of removing the row", async () => {

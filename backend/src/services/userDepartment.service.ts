@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const departmentSelect = {
   id: true,
@@ -6,16 +7,28 @@ const departmentSelect = {
   code: true,
 } as const;
 
-export function getDepartmentsForUser(userId: bigint) {
-  return prisma.userDepartment
-    .findMany({
-      where: { userId },
+export async function getDepartmentsForUser(
+  userId: bigint,
+  params: { page: number; pageSize: number },
+): Promise<
+  PaginatedResult<{ id: bigint; name: string; code: string | null; isPrimary: boolean; assignedAt: Date }>
+> {
+  const where = { userId };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [rows, total] = await Promise.all([
+    prisma.userDepartment.findMany({
+      where,
       include: { department: { select: departmentSelect } },
       orderBy: { createdAt: "asc" },
-    })
-    .then((rows) =>
-      rows.map((row) => ({ ...row.department, isPrimary: row.isPrimary, assignedAt: row.createdAt })),
-    );
+      skip,
+      take,
+    }),
+    prisma.userDepartment.count({ where }),
+  ]);
+
+  const data = rows.map((row) => ({ ...row.department, isPrimary: row.isPrimary, assignedAt: row.createdAt }));
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function assignDepartmentToUser(

@@ -1,4 +1,6 @@
 import { NextFunction, Request, Response } from "express";
+import { z } from "zod";
+import { PaginationQuery, paginationQuerySchema } from "../interfaces/pagination";
 
 type AsyncHandler = (
   req: Request,
@@ -19,4 +21,13 @@ export function parseBigIntId(value: unknown): bigint | null {
   } catch {
     return null;
   }
+}
+
+export function parsePagination(req: Request, res: Response): PaginationQuery | null {
+  const result = paginationQuerySchema.safeParse(req.query);
+  if (!result.success) {
+    res.status(400).json({ error: z.flattenError(result.error) });
+    return null;
+  }
+  return result.data;
 }

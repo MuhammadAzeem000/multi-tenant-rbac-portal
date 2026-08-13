@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { CreateModuleInput, ModuleResponse, UpdateModuleInput } from "../interfaces/module";
+import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
 const moduleSelect = {
   id: true,
@@ -15,12 +16,19 @@ const moduleSelect = {
   updatedAt: true,
 } as const;
 
-export function getModules(): Promise<ModuleResponse[]> {
-  return prisma.module.findMany({
-    where: { deletedAt: null },
-    select: moduleSelect,
-    orderBy: { sortOrder: "asc" },
-  });
+export async function getModules(params: {
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedResult<ModuleResponse>> {
+  const where = { deletedAt: null };
+  const { skip, take } = toSkipTake(params.page, params.pageSize);
+
+  const [data, total] = await Promise.all([
+    prisma.module.findMany({ where, select: moduleSelect, orderBy: { sortOrder: "asc" }, skip, take }),
+    prisma.module.count({ where }),
+  ]);
+
+  return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };
 }
 
 export function getModuleById(id: bigint): Promise<ModuleResponse | null> {
