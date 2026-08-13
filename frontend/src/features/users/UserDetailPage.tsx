@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, UserCheck, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { usersApi } from '@/api/users.api'
@@ -32,6 +32,7 @@ export function UserDetailPage() {
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   const query = useQuery({
     queryKey: ['users', id],
@@ -57,6 +58,16 @@ export function UserDetailPage() {
       toast.success('User deleted')
       queryClient.invalidateQueries({ queryKey: ['users'] })
       navigate('/users')
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const setActiveMutation = useMutation({
+    mutationFn: (nextIsActive: boolean) => usersApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, nextIsActive) => {
+      toast.success(nextIsActive ? 'User activated' : 'User deactivated')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setDeactivating(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -94,6 +105,21 @@ export function UserDetailPage() {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
+          {user.isActive ? (
+            <Button variant="secondary" onClick={() => setDeactivating(true)}>
+              <UserX className="size-3.5" aria-hidden="true" />
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={() => setActiveMutation.mutate(true)}
+              loading={setActiveMutation.isPending}
+            >
+              <UserCheck className="size-3.5" aria-hidden="true" />
+              Activate
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setEditing(true)}>
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
@@ -168,6 +194,17 @@ export function UserDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleting(false)}
+      />
+
+      <ConfirmDialog
+        open={deactivating}
+        title="Deactivate user"
+        description={`Deactivate "${user.name}"? They won't be able to sign in until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => setActiveMutation.mutate(false)}
+        onCancel={() => setDeactivating(false)}
       />
     </div>
   )

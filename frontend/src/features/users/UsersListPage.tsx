@@ -1,6 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2, UserCheck, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usersApi } from '@/api/users.api'
@@ -30,6 +30,7 @@ export function UsersListPage() {
 
   const [drawerUser, setDrawerUser] = useState<User | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null)
 
   const query = useQuery({
     queryKey: ['users', { tenantId, page, pageSize, search, isActive }],
@@ -71,6 +72,17 @@ export function UsersListPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, isActive: nextIsActive }: { id: string; isActive: boolean }) =>
+      usersApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isActive ? 'User activated' : 'User deactivated')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setDeactivateTarget(null)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   const columns = [
     columnHelper.accessor('name', {
       header: 'User',
@@ -90,29 +102,55 @@ export function UsersListPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: (info) => (
-        <div className="flex justify-end gap-1">
-          <IconButton
-            label="Edit user"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDrawerUser(info.row.original)
-            }}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label="Delete user"
-            variant="danger"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteTarget(info.row.original)
-            }}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </IconButton>
-        </div>
-      ),
+      cell: (info) => {
+        const user = info.row.original
+        return (
+          <div className="flex justify-end gap-1">
+            {user.isActive ? (
+              <IconButton
+                label="Deactivate user"
+                variant="danger"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeactivateTarget(user)
+                }}
+              >
+                <UserX className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label="Activate user"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMutation.mutate({ id: user.id, isActive: true })
+                }}
+                disabled={setActiveMutation.isPending}
+              >
+                <UserCheck className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            )}
+            <IconButton
+              label="Edit user"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDrawerUser(user)
+              }}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label="Delete user"
+              variant="danger"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(user)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        )
+      },
     }),
   ]
 
@@ -183,6 +221,17 @@ export function UsersListPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        title="Deactivate user"
+        description={`Deactivate "${deactivateTarget?.name}"? They won't be able to sign in until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => deactivateTarget && setActiveMutation.mutate({ id: deactivateTarget.id, isActive: false })}
+        onCancel={() => setDeactivateTarget(null)}
       />
     </div>
   )
