@@ -21,10 +21,15 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
+    "@babel/preset-typescript": "^8.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.1.2",
     "@types/pg": "^8.20.4",
+    "babel-jest": "^30.4.1",
     "jest": "^30.0.0",
     "typescript": "^7.0.2"
   }
