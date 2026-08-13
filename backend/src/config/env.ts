@@ -20,6 +20,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+  CORS_ORIGIN: z.string().default("http://localhost:5173,http://localhost:5174"),
 });
 
 const parsed = envSchema.parse(process.env);
@@ -27,4 +28,5 @@ const parsed = envSchema.parse(process.env);
 export const env = {
   ...parsed,
   DATABASE_URL: `postgresql://${encodeURIComponent(parsed.DB_USER)}:${encodeURIComponent(parsed.DB_PASSWORD)}@${parsed.DB_HOST}:${parsed.DB_PORT}/${parsed.DB_NAME}?schema=public`,
+  CORS_ORIGINS: parsed.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean),
 };

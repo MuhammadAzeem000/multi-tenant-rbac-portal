@@ -1,5 +1,6 @@
 import "./utils/bigint";
 import { env } from "./config/env";
+import cors from "cors";
 import express from "express";
 import { Request, Response } from "express";
 import { actionRouter } from "./routes/action.routes";
@@ -17,6 +18,11 @@ import { userRouter } from "./routes/user.routes";
 const app = express();
 const PORT = env.PORT;
 
+app.use(
+  cors({
+    origin: env.CORS_ORIGINS,
+  }),
+);
 app.use(express.json());
 
 app.get("/", (_req: Request, res: Response) => {
