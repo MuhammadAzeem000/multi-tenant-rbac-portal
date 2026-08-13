@@ -1,0 +1,31 @@
+import { z } from "zod";
+import { bigIntId } from "./common";
+
+export const createDepartmentSchema = z.object({
+  tenantId: bigIntId,
+  name: z.string().trim().min(1).max(150),
+  code: z.string().trim().max(50).optional(),
+  description: z.string().trim().optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+export const updateDepartmentSchema = createDepartmentSchema.omit({ tenantId: true }).partial().extend({
+  status: z.string().trim().max(30).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>;
+
+export interface DepartmentResponse {
+  id: bigint;
+  tenantId: bigint;
+  name: string;
+  code: string | null;
+  description: string | null;
+  status: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date | null;
+}

@@ -11,3 +11,12 @@ export function asyncHandler(handler: AsyncHandler) {
     handler(req, res, next).catch(next);
   };
 }
+
+export function parseBigIntId(value: unknown): bigint | null {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  try {
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}

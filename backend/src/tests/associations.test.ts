@@ -1,0 +1,95 @@
+import "../utils/bigint";
+import { Request, Response } from "express";
+import * as userRoleController from "../controllers/userRole.controller";
+import * as rolePermissionController from "../controllers/rolePermission.controller";
+import * as userService from "../services/user.service";
+import * as roleService from "../services/role.service";
+import * as permissionService from "../services/permission.service";
+import * as userRoleService from "../services/userRole.service";
+import * as rolePermissionService from "../services/rolePermission.service";
+
+jest.mock("../services/user.service");
+jest.mock("../services/role.service");
+jest.mock("../services/permission.service");
+jest.mock("../services/userRole.service");
+jest.mock("../services/rolePermission.service");
+
+function mockRes() {
+  const res = {} as Response;
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  res.send = jest.fn().mockReturnValue(res);
+  return res;
+}
+
+describe("userRole associations", () => {
+  it("rejects assigning a role from a different tenant", async () => {
+    (userService.getUserById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (roleService.getRoleById as jest.Mock).mockResolvedValue({ id: 2n, tenantId: 2n });
+
+    const req = { params: { id: "1" }, body: { roleId: "2" } } as unknown as Request;
+    const res = mockRes();
+
+    await userRoleController.assignRoleToUser(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(userRoleService.assignRoleToUser).not.toHaveBeenCalled();
+  });
+
+  it("assigns a role in the same tenant", async () => {
+    (userService.getUserById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (roleService.getRoleById as jest.Mock).mockResolvedValue({ id: 2n, tenantId: 1n });
+    (userRoleService.assignRoleToUser as jest.Mock).mockResolvedValue({ userId: 1n, roleId: 2n });
+
+    const req = { params: { id: "1" }, body: { roleId: "2" } } as unknown as Request;
+    const res = mockRes();
+
+    await userRoleController.assignRoleToUser(req, res);
+
+    expect(userRoleService.assignRoleToUser).toHaveBeenCalledWith(1n, 1n, 2n);
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("responds 404 when revoking an assignment that does not exist", async () => {
+    (userRoleService.revokeRoleFromUser as jest.Mock).mockResolvedValue(false);
+
+    const req = { params: { id: "1", roleId: "2" } } as unknown as Request;
+    const res = mockRes();
+
+    await userRoleController.revokeRoleFromUser(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+});
+
+describe("rolePermission associations", () => {
+  it("rejects assigning a permission from a different tenant", async () => {
+    (roleService.getRoleById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (permissionService.getPermissionById as jest.Mock).mockResolvedValue({ id: 2n, tenantId: 2n });
+
+    const req = { params: { id: "1" }, body: { permissionId: "2" } } as unknown as Request;
+    const res = mockRes();
+
+    await rolePermissionController.assignPermissionToRole(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(rolePermissionService.assignPermissionToRole).not.toHaveBeenCalled();
+  });
+
+  it("assigns a permission in the same tenant", async () => {
+    (roleService.getRoleById as jest.Mock).mockResolvedValue({ id: 1n, tenantId: 1n });
+    (permissionService.getPermissionById as jest.Mock).mockResolvedValue({ id: 2n, tenantId: 1n });
+    (rolePermissionService.assignPermissionToRole as jest.Mock).mockResolvedValue({
+      roleId: 1n,
+      permissionId: 2n,
+    });
+
+    const req = { params: { id: "1" }, body: { permissionId: "2" } } as unknown as Request;
+    const res = mockRes();
+
+    await rolePermissionController.assignPermissionToRole(req, res);
+
+    expect(rolePermissionService.assignPermissionToRole).toHaveBeenCalledWith(1n, 1n, 2n);
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+});
