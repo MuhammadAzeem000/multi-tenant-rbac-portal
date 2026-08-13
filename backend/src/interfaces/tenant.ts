@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "./pagination";
+
+export const tenantListQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).max(255).optional(),
+  isActive: z.coerce.boolean().optional(),
+});
+
+export type TenantListQuery = z.infer<typeof tenantListQuerySchema>;
 
 export const createTenantSchema = z.object({
   name: z.string().trim().min(1).max(150),

@@ -59,6 +59,27 @@ describe("user.service", () => {
     );
   });
 
+  it("getUsers searches across name/username/email and filters by isActive", async () => {
+    mockedPrisma.user.findMany.mockResolvedValue([]);
+    mockedPrisma.user.count.mockResolvedValue(0);
+
+    await userService.getUsers({ page: 1, pageSize: 20, search: "alice", isActive: false });
+
+    expect(mockedPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: null,
+          isActive: false,
+          OR: [
+            { name: { contains: "alice", mode: "insensitive" } },
+            { username: { contains: "alice", mode: "insensitive" } },
+            { email: { contains: "alice", mode: "insensitive" } },
+          ],
+        },
+      }),
+    );
+  });
+
   it("getUsers computes skip from the page number", async () => {
     mockedPrisma.user.findMany.mockResolvedValue([]);
     mockedPrisma.user.count.mockResolvedValue(45);

@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "./pagination";
+
+export const moduleListQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).max(255).optional(),
+  isActive: z.coerce.boolean().optional(),
+});
+
+export type ModuleListQuery = z.infer<typeof moduleListQuerySchema>;
 
 export const createModuleSchema = z.object({
   name: z.string().trim().min(1).max(100),

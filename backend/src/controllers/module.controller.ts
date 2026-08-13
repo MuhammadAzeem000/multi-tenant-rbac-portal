@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { createModuleSchema, updateModuleSchema } from "../interfaces/module";
+import { createModuleSchema, moduleListQuerySchema, updateModuleSchema } from "../interfaces/module";
 import * as moduleService from "../services/module.service";
-import { parseBigIntId, parsePagination } from "../utils";
+import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,10 +14,10 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getModules(req: Request, res: Response) {
-  const pagination = parsePagination(req, res);
-  if (!pagination) return;
+  const query = parseQuery(moduleListQuerySchema, req, res);
+  if (!query) return;
 
-  const result = await moduleService.getModules(pagination);
+  const result = await moduleService.getModules(query);
   res.json(result);
 }
 

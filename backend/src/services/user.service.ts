@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../config/prisma";
+import { Prisma } from "../generated/prisma/client";
 import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 import { CreateUserInput, UpdateUserInput, UserResponse } from "../interfaces/user";
 
@@ -32,8 +33,21 @@ export async function getUsers(params: {
   tenantId?: bigint;
   page: number;
   pageSize: number;
+  search?: string;
+  isActive?: boolean;
 }): Promise<PaginatedResult<UserResponse>> {
-  const where = { deletedAt: null, ...(params.tenantId !== undefined && { tenantId: params.tenantId }) };
+  const where: Prisma.UserWhereInput = {
+    deletedAt: null,
+    ...(params.tenantId !== undefined && { tenantId: params.tenantId }),
+    ...(params.isActive !== undefined && { isActive: params.isActive }),
+    ...(params.search && {
+      OR: [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { username: { contains: params.search, mode: "insensitive" } },
+        { email: { contains: params.search, mode: "insensitive" } },
+      ],
+    }),
+  };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([

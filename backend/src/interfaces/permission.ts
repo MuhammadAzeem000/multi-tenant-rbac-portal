@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { bigIntId } from "./common";
+import { paginationQuerySchema } from "./pagination";
+
+export const permissionListQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).max(255).optional(),
+  isActive: z.coerce.boolean().optional(),
+  moduleId: bigIntId.optional(),
+  actionId: bigIntId.optional(),
+});
+
+export type PermissionListQuery = z.infer<typeof permissionListQuerySchema>;
 
 export const createPermissionSchema = z.object({
   tenantId: bigIntId,

@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { createTenantSchema, updateTenantSchema } from "../interfaces/tenant";
+import { createTenantSchema, tenantListQuerySchema, updateTenantSchema } from "../interfaces/tenant";
 import * as tenantService from "../services/tenant.service";
-import { parseBigIntId, parsePagination } from "../utils";
+import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,10 +14,10 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getTenants(req: Request, res: Response) {
-  const pagination = parsePagination(req, res);
-  if (!pagination) return;
+  const query = parseQuery(tenantListQuerySchema, req, res);
+  if (!query) return;
 
-  const result = await tenantService.getTenants(pagination);
+  const result = await tenantService.getTenants(query);
   res.json(result);
 }
 

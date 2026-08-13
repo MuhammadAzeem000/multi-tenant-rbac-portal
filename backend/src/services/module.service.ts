@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { Prisma } from "../generated/prisma/client";
 import { CreateModuleInput, ModuleResponse, UpdateModuleInput } from "../interfaces/module";
 import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
@@ -19,8 +20,19 @@ const moduleSelect = {
 export async function getModules(params: {
   page: number;
   pageSize: number;
+  search?: string;
+  isActive?: boolean;
 }): Promise<PaginatedResult<ModuleResponse>> {
-  const where = { deletedAt: null };
+  const where: Prisma.ModuleWhereInput = {
+    deletedAt: null,
+    ...(params.isActive !== undefined && { isActive: params.isActive }),
+    ...(params.search && {
+      OR: [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { code: { contains: params.search, mode: "insensitive" } },
+      ],
+    }),
+  };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([

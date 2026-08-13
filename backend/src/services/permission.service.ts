@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { Prisma } from "../generated/prisma/client";
 import { CreatePermissionInput, PermissionResponse, UpdatePermissionInput } from "../interfaces/permission";
 import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
@@ -20,8 +21,24 @@ export async function getPermissions(params: {
   tenantId?: bigint;
   page: number;
   pageSize: number;
+  search?: string;
+  isActive?: boolean;
+  moduleId?: bigint;
+  actionId?: bigint;
 }): Promise<PaginatedResult<PermissionResponse>> {
-  const where = { deletedAt: null, ...(params.tenantId !== undefined && { tenantId: params.tenantId }) };
+  const where: Prisma.PermissionWhereInput = {
+    deletedAt: null,
+    ...(params.tenantId !== undefined && { tenantId: params.tenantId }),
+    ...(params.isActive !== undefined && { isActive: params.isActive }),
+    ...(params.moduleId !== undefined && { moduleId: params.moduleId }),
+    ...(params.actionId !== undefined && { actionId: params.actionId }),
+    ...(params.search && {
+      OR: [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { code: { contains: params.search, mode: "insensitive" } },
+      ],
+    }),
+  };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([

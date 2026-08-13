@@ -27,8 +27,21 @@ const tenantSelect = {
 export async function getTenants(params: {
   page: number;
   pageSize: number;
+  search?: string;
+  isActive?: boolean;
 }): Promise<PaginatedResult<TenantResponse>> {
-  const where = { deletedAt: null };
+  const where: Prisma.TenantWhereInput = {
+    deletedAt: null,
+    ...(params.isActive !== undefined && { isActive: params.isActive }),
+    ...(params.search && {
+      OR: [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { slug: { contains: params.search, mode: "insensitive" } },
+        { code: { contains: params.search, mode: "insensitive" } },
+        { email: { contains: params.search, mode: "insensitive" } },
+      ],
+    }),
+  };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([

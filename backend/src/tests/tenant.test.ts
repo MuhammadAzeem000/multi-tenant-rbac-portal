@@ -60,6 +60,28 @@ describe("tenant.service", () => {
     expect(result.pagination.totalPages).toBe(3);
   });
 
+  it("getTenants searches across name/slug/code/email and filters by isActive", async () => {
+    mockedPrisma.tenant.findMany.mockResolvedValue([]);
+    mockedPrisma.tenant.count.mockResolvedValue(0);
+
+    await tenantService.getTenants({ page: 1, pageSize: 20, search: "acme", isActive: true });
+
+    expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          OR: [
+            { name: { contains: "acme", mode: "insensitive" } },
+            { slug: { contains: "acme", mode: "insensitive" } },
+            { code: { contains: "acme", mode: "insensitive" } },
+            { email: { contains: "acme", mode: "insensitive" } },
+          ],
+        },
+      }),
+    );
+  });
+
   it("getTenantById returns null when not found", async () => {
     mockedPrisma.tenant.findFirst.mockResolvedValue(null);
     expect(await tenantService.getTenantById(1n)).toBeNull();

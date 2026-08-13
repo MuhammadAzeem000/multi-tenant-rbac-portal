@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { createActionSchema, updateActionSchema } from "../interfaces/action";
+import { actionListQuerySchema, createActionSchema, updateActionSchema } from "../interfaces/action";
 import * as actionService from "../services/action.service";
-import { parseBigIntId, parsePagination } from "../utils";
+import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,10 +14,10 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getActions(req: Request, res: Response) {
-  const pagination = parsePagination(req, res);
-  if (!pagination) return;
+  const query = parseQuery(actionListQuerySchema, req, res);
+  if (!query) return;
 
-  const result = await actionService.getActions(pagination);
+  const result = await actionService.getActions(query);
   res.json(result);
 }
 

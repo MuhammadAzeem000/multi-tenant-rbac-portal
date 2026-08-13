@@ -1,5 +1,13 @@
 import { z } from "zod";
 import { bigIntId } from "./common";
+import { paginationQuerySchema } from "./pagination";
+
+export const roleListQuerySchema = paginationQuerySchema.extend({
+  search: z.string().trim().min(1).max(255).optional(),
+  isActive: z.coerce.boolean().optional(),
+});
+
+export type RoleListQuery = z.infer<typeof roleListQuerySchema>;
 
 export const createRoleSchema = z.object({
   tenantId: bigIntId,

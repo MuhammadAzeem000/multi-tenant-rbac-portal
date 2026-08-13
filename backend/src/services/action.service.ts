@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { Prisma } from "../generated/prisma/client";
 import { ActionResponse, CreateActionInput, UpdateActionInput } from "../interfaces/action";
 import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/pagination";
 
@@ -17,8 +18,19 @@ const actionSelect = {
 export async function getActions(params: {
   page: number;
   pageSize: number;
+  search?: string;
+  isActive?: boolean;
 }): Promise<PaginatedResult<ActionResponse>> {
-  const where = { deletedAt: null };
+  const where: Prisma.ActionWhereInput = {
+    deletedAt: null,
+    ...(params.isActive !== undefined && { isActive: params.isActive }),
+    ...(params.search && {
+      OR: [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { code: { contains: params.search, mode: "insensitive" } },
+      ],
+    }),
+  };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([

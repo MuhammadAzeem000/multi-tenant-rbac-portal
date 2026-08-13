@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { createPermissionSchema, updatePermissionSchema } from "../interfaces/permission";
+import { createPermissionSchema, permissionListQuerySchema, updatePermissionSchema } from "../interfaces/permission";
 import * as permissionService from "../services/permission.service";
-import { parseBigIntId, parsePagination } from "../utils";
+import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
   const id = parseBigIntId(req.params.id);
@@ -14,8 +14,8 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 export async function getPermissions(req: Request, res: Response) {
-  const pagination = parsePagination(req, res);
-  if (!pagination) return;
+  const query = parseQuery(permissionListQuerySchema, req, res);
+  if (!query) return;
 
   const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
   if (req.query.tenantId && tenantId === null) {
@@ -23,7 +23,7 @@ export async function getPermissions(req: Request, res: Response) {
     return;
   }
 
-  const result = await permissionService.getPermissions({ tenantId: tenantId ?? undefined, ...pagination });
+  const result = await permissionService.getPermissions({ tenantId: tenantId ?? undefined, ...query });
   res.json(result);
 }
 
