@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { tenantsApi } from '@/api/tenants.api'
@@ -24,6 +24,7 @@ export function TenantDetailPage() {
   const currentTenantId = useAuthStore((state) => state.user?.tenantId)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   const query = useQuery({
     queryKey: ['tenants', id],
@@ -46,6 +47,16 @@ export function TenantDetailPage() {
       toast.success('Tenant deleted')
       queryClient.invalidateQueries({ queryKey: ['tenants'] })
       navigate('/tenants')
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const setActiveMutation = useMutation({
+    mutationFn: (nextIsActive: boolean) => tenantsApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, nextIsActive) => {
+      toast.success(nextIsActive ? 'Tenant activated' : 'Tenant deactivated')
+      queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      setDeactivating(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -83,6 +94,28 @@ export function TenantDetailPage() {
           <p className="mt-0.5 text-sm text-slate-500">{tenant.slug}</p>
         </div>
         <div className="flex shrink-0 gap-2">
+          {tenant.isActive ? (
+            <Button
+              variant="secondary"
+              disabled={isOwnTenant}
+              title={isOwnTenant ? "You can't deactivate the tenant you're logged into" : undefined}
+              onClick={() => setDeactivating(true)}
+            >
+              <PowerOff className="size-3.5" aria-hidden="true" />
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={isOwnTenant}
+              title={isOwnTenant ? "You can't activate the tenant you're logged into" : undefined}
+              onClick={() => setActiveMutation.mutate(true)}
+              loading={setActiveMutation.isPending}
+            >
+              <Power className="size-3.5" aria-hidden="true" />
+              Activate
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setEditing(true)}>
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
@@ -101,7 +134,8 @@ export function TenantDetailPage() {
 
       {isOwnTenant && (
         <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          This is the organization you're currently logged into, so it can't be deleted from here.
+          This is the organization you're currently logged into, so it can't be deleted or have its active status
+          changed from here.
         </p>
       )}
 
@@ -149,6 +183,17 @@ export function TenantDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleting(false)}
+      />
+
+      <ConfirmDialog
+        open={deactivating}
+        title="Deactivate tenant"
+        description={`Deactivate "${tenant.name}"? Its users won't be able to sign in until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => setActiveMutation.mutate(false)}
+        onCancel={() => setDeactivating(false)}
       />
     </div>
   )

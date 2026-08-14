@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { rolesApi } from '@/api/roles.api'
@@ -32,6 +32,7 @@ export function RoleDetailPage() {
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   const query = useQuery({
     queryKey: ['roles', id],
@@ -58,6 +59,16 @@ export function RoleDetailPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const setActiveMutation = useMutation({
+    mutationFn: (nextIsActive: boolean) => rolesApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, nextIsActive) => {
+      toast.success(nextIsActive ? 'Role activated' : 'Role deactivated')
+      queryClient.invalidateQueries({ queryKey: ['roles'] })
+      setDeactivating(false)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   if (query.isLoading) {
     return (
       <div className="flex justify-center py-16">
@@ -79,6 +90,12 @@ export function RoleDetailPage() {
     : isMine
       ? "You can't delete a role assigned to you"
       : undefined
+  const disableActiveToggle = role.isSystem || isMine
+  const activeToggleTitle = role.isSystem
+    ? "System roles can't be deactivated"
+    : isMine
+      ? "You can't change the active status of a role assigned to you"
+      : undefined
 
   return (
     <div>
@@ -98,6 +115,28 @@ export function RoleDetailPage() {
           {role.code && <p className="mt-0.5 text-sm text-slate-500">{role.code}</p>}
         </div>
         <div className="flex shrink-0 gap-2">
+          {role.isActive ? (
+            <Button
+              variant="secondary"
+              disabled={disableActiveToggle}
+              title={activeToggleTitle}
+              onClick={() => setDeactivating(true)}
+            >
+              <PowerOff className="size-3.5" aria-hidden="true" />
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={disableActiveToggle}
+              title={activeToggleTitle}
+              onClick={() => setActiveMutation.mutate(true)}
+              loading={setActiveMutation.isPending}
+            >
+              <Power className="size-3.5" aria-hidden="true" />
+              Activate
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setEditing(true)}>
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
@@ -116,7 +155,8 @@ export function RoleDetailPage() {
 
       {isMine && !role.isSystem && (
         <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          This role is assigned to your account, so it can't be deleted from here.
+          This role is assigned to your account, so it can't be deleted or have its active status changed from
+          here.
         </p>
       )}
 
@@ -171,6 +211,17 @@ export function RoleDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleting(false)}
+      />
+
+      <ConfirmDialog
+        open={deactivating}
+        title="Deactivate role"
+        description={`Deactivate "${role.name}"? Users with this role will lose its permissions until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => setActiveMutation.mutate(false)}
+        onCancel={() => setDeactivating(false)}
       />
     </div>
   )

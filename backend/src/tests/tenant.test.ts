@@ -144,6 +144,35 @@ describe("tenant.controller", () => {
     );
   });
 
+  it("updateTenant responds 409 when changing the active status of the tenant you're logged into", async () => {
+    const req = {
+      params: { id: "1" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.updateTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+  });
+
+  it("updateTenant proceeds when changing the active status of a different tenant", async () => {
+    mockedPrisma.tenant.update.mockResolvedValue({ id: 2n });
+    const req = {
+      params: { id: "2" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.updateTenant(req, res);
+
+    expect(mockedPrisma.tenant.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 2n } }));
+    expect(res.json).toHaveBeenCalled();
+  });
+
   it("deleteTenant responds 409 when deleting the tenant you're logged into", async () => {
     const req = {
       params: { id: "1" },

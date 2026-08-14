@@ -54,6 +54,11 @@ export async function updateTenant(req: Request, res: Response) {
     return;
   }
 
+  if (req.auth!.tenantId === id && result.data.isActive !== undefined) {
+    res.status(409).json({ error: "You can't change the active status of the tenant you're currently logged into" });
+    return;
+  }
+
   const tenant = await tenantService.updateTenant(id, result.data);
   res.json(tenant);
 }

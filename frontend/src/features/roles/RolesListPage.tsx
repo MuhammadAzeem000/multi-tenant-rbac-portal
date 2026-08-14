@@ -1,6 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { rolesApi } from '@/api/roles.api'
@@ -32,6 +32,7 @@ export function RolesListPage() {
 
   const [drawerRole, setDrawerRole] = useState<Role | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Role | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Role | null>(null)
 
   const query = useQuery({
     queryKey: ['roles', { tenantId, page, pageSize, search, isActive }],
@@ -66,6 +67,17 @@ export function RolesListPage() {
       toast.success('Role deleted')
       queryClient.invalidateQueries({ queryKey: ['roles'] })
       setDeleteTarget(null)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, isActive: nextIsActive }: { id: string; isActive: boolean }) =>
+      rolesApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isActive ? 'Role activated' : 'Role deactivated')
+      queryClient.invalidateQueries({ queryKey: ['roles'] })
+      setDeactivateTarget(null)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -107,8 +119,38 @@ export function RolesListPage() {
           : isMine
             ? "You can't delete a role assigned to you"
             : 'Delete role'
+        const disableActiveToggle = role.isSystem || isMine
+        const activeToggleLabel = role.isSystem
+          ? "System roles can't be deactivated"
+          : isMine
+            ? "You can't change the active status of a role assigned to you"
+            : undefined
         return (
           <div className="flex justify-end gap-1">
+            {role.isActive ? (
+              <IconButton
+                label={activeToggleLabel ?? 'Deactivate role'}
+                variant="danger"
+                disabled={disableActiveToggle}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeactivateTarget(role)
+                }}
+              >
+                <PowerOff className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label={activeToggleLabel ?? 'Activate role'}
+                disabled={disableActiveToggle || setActiveMutation.isPending}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMutation.mutate({ id: role.id, isActive: true })
+                }}
+              >
+                <Power className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            )}
             <IconButton
               label="Edit role"
               onClick={(e) => {
@@ -201,6 +243,17 @@ export function RolesListPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        title="Deactivate role"
+        description={`Deactivate "${deactivateTarget?.name}"? Users with this role will lose its permissions until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => deactivateTarget && setActiveMutation.mutate({ id: deactivateTarget.id, isActive: false })}
+        onCancel={() => setDeactivateTarget(null)}
       />
     </div>
   )

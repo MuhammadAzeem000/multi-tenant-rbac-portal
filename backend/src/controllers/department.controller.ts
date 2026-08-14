@@ -61,6 +61,14 @@ export async function updateDepartment(req: Request, res: Response) {
     return;
   }
 
+  if (
+    result.data.isActive !== undefined &&
+    (await userDepartmentService.isDepartmentAssignedToUser(req.auth!.userId, id))
+  ) {
+    res.status(409).json({ error: "You can't change the active status of a department you belong to" });
+    return;
+  }
+
   const department = await departmentService.updateDepartment(id, result.data);
   res.json(department);
 }

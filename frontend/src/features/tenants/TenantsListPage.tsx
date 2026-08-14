@@ -1,6 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tenantsApi } from '@/api/tenants.api'
@@ -30,6 +30,7 @@ export function TenantsListPage() {
 
   const [drawerTenant, setDrawerTenant] = useState<Tenant | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Tenant | null>(null)
 
   const query = useQuery({
     queryKey: ['tenants', { page, pageSize, search, isActive }],
@@ -67,6 +68,17 @@ export function TenantsListPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, isActive: nextIsActive }: { id: string; isActive: boolean }) =>
+      tenantsApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isActive ? 'Tenant activated' : 'Tenant deactivated')
+      queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      setDeactivateTarget(null)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   const columns = [
     columnHelper.accessor('name', {
       header: 'Tenant',
@@ -87,14 +99,39 @@ export function TenantsListPage() {
       id: 'actions',
       header: '',
       cell: (info) => {
-        const isOwnTenant = info.row.original.id === currentTenantId
+        const tenant = info.row.original
+        const isOwnTenant = tenant.id === currentTenantId
         return (
           <div className="flex justify-end gap-1">
+            {tenant.isActive ? (
+              <IconButton
+                label={isOwnTenant ? "You can't deactivate the tenant you're logged into" : 'Deactivate tenant'}
+                variant="danger"
+                disabled={isOwnTenant}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeactivateTarget(tenant)
+                }}
+              >
+                <PowerOff className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label={isOwnTenant ? "You can't activate the tenant you're logged into" : 'Activate tenant'}
+                disabled={isOwnTenant || setActiveMutation.isPending}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMutation.mutate({ id: tenant.id, isActive: true })
+                }}
+              >
+                <Power className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            )}
             <IconButton
               label="Edit tenant"
               onClick={(e) => {
                 e.stopPropagation()
-                setDrawerTenant(info.row.original)
+                setDrawerTenant(tenant)
               }}
             >
               <Pencil className="size-3.5" aria-hidden="true" />
@@ -105,7 +142,7 @@ export function TenantsListPage() {
               disabled={isOwnTenant}
               onClick={(e) => {
                 e.stopPropagation()
-                setDeleteTarget(info.row.original)
+                setDeleteTarget(tenant)
               }}
             >
               <Trash2 className="size-3.5" aria-hidden="true" />
@@ -182,6 +219,17 @@ export function TenantsListPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        title="Deactivate tenant"
+        description={`Deactivate "${deactivateTarget?.name}"? Its users won't be able to sign in until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => deactivateTarget && setActiveMutation.mutate({ id: deactivateTarget.id, isActive: false })}
+        onCancel={() => setDeactivateTarget(null)}
       />
     </div>
   )

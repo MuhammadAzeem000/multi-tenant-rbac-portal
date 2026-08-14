@@ -1,6 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { departmentsApi } from '@/api/departments.api'
@@ -32,6 +32,7 @@ export function DepartmentsListPage() {
 
   const [drawerDepartment, setDrawerDepartment] = useState<Department | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Department | null>(null)
 
   const query = useQuery({
     queryKey: ['departments', { tenantId, page, pageSize, search, isActive }],
@@ -71,6 +72,17 @@ export function DepartmentsListPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, isActive: nextIsActive }: { id: string; isActive: boolean }) =>
+      departmentsApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isActive ? 'Department activated' : 'Department deactivated')
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+      setDeactivateTarget(null)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   const columns = [
     columnHelper.accessor('name', {
       header: 'Department',
@@ -94,6 +106,30 @@ export function DepartmentsListPage() {
         const isMine = myDepartmentIds.has(department.id)
         return (
           <div className="flex justify-end gap-1">
+            {department.isActive ? (
+              <IconButton
+                label={isMine ? "You can't change the active status of a department you belong to" : 'Deactivate department'}
+                variant="danger"
+                disabled={isMine}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeactivateTarget(department)
+                }}
+              >
+                <PowerOff className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label={isMine ? "You can't change the active status of a department you belong to" : 'Activate department'}
+                disabled={isMine || setActiveMutation.isPending}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMutation.mutate({ id: department.id, isActive: true })
+                }}
+              >
+                <Power className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            )}
             <IconButton
               label="Edit department"
               onClick={(e) => {
@@ -186,6 +222,17 @@ export function DepartmentsListPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        title="Deactivate department"
+        description={`Deactivate "${deactivateTarget?.name}"? It will no longer be usable until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => deactivateTarget && setActiveMutation.mutate({ id: deactivateTarget.id, isActive: false })}
+        onCancel={() => setDeactivateTarget(null)}
       />
     </div>
   )

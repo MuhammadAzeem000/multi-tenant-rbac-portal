@@ -61,6 +61,11 @@ export async function updateRole(req: Request, res: Response) {
     return;
   }
 
+  if (result.data.isActive !== undefined && (await userRoleService.isRoleAssignedToUser(req.auth!.userId, id))) {
+    res.status(409).json({ error: "You can't change the active status of a role assigned to your own account" });
+    return;
+  }
+
   const role = await roleService.updateRole(id, result.data);
   res.json(role);
 }

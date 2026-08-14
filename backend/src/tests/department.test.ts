@@ -97,6 +97,37 @@ describe("department.controller", () => {
     expect(res.status).toHaveBeenCalledWith(404);
   });
 
+  it("updateDepartment responds 409 when changing the active status of a department you belong to", async () => {
+    mockedPrisma.userDepartment.findFirst.mockResolvedValue({ userId: 9n });
+    const req = {
+      params: { id: "1" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.updateDepartment(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.department.update).not.toHaveBeenCalled();
+  });
+
+  it("updateDepartment proceeds when changing the active status of a department you don't belong to", async () => {
+    mockedPrisma.userDepartment.findFirst.mockResolvedValue(null);
+    mockedPrisma.department.update.mockResolvedValue({ id: 1n });
+    const req = {
+      params: { id: "1" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.updateDepartment(req, res);
+
+    expect(mockedPrisma.department.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }));
+    expect(res.json).toHaveBeenCalled();
+  });
+
   it("deleteDepartment responds 409 when you belong to the department", async () => {
     mockedPrisma.userDepartment.findFirst.mockResolvedValue({ userId: 9n });
     const req = {

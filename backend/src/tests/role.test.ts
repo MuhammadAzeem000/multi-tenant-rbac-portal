@@ -95,6 +95,37 @@ describe("role.controller", () => {
     expect(res.status).toHaveBeenCalledWith(404);
   });
 
+  it("updateRole responds 409 when changing the active status of a role assigned to your own account", async () => {
+    mockedPrisma.userRole.findFirst.mockResolvedValue({ userId: 9n });
+    const req = {
+      params: { id: "1" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.updateRole(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.role.update).not.toHaveBeenCalled();
+  });
+
+  it("updateRole proceeds when changing the active status of a role not assigned to your own account", async () => {
+    mockedPrisma.userRole.findFirst.mockResolvedValue(null);
+    mockedPrisma.role.update.mockResolvedValue({ id: 1n });
+    const req = {
+      params: { id: "1" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.updateRole(req, res);
+
+    expect(mockedPrisma.role.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }));
+    expect(res.json).toHaveBeenCalled();
+  });
+
   it("deleteRole responds 409 when the role is assigned to your own account", async () => {
     mockedPrisma.userRole.findFirst.mockResolvedValue({ userId: 9n });
     const req = {
