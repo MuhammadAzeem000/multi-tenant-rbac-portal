@@ -41,3 +41,8 @@ export async function revokeRoleFromUser(userId: bigint, roleId: bigint): Promis
   const { count } = await prisma.userRole.deleteMany({ where: { userId, roleId } });
   return count > 0;
 }
+
+export async function isRoleAssignedToUser(userId: bigint, roleId: bigint): Promise<boolean> {
+  const assignment = await prisma.userRole.findFirst({ where: { userId, roleId }, select: { userId: true } });
+  return assignment !== null;
+}

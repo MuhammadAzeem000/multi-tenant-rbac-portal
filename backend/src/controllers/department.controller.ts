@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createDepartmentSchema, departmentListQuerySchema, updateDepartmentSchema } from "../interfaces/department";
 import * as departmentService from "../services/department.service";
+import * as userDepartmentService from "../services/userDepartment.service";
 import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
@@ -67,6 +68,11 @@ export async function updateDepartment(req: Request, res: Response) {
 export async function deleteDepartment(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
+
+  if (await userDepartmentService.isDepartmentAssignedToUser(req.auth!.userId, id)) {
+    res.status(409).json({ error: "You can't delete a department you belong to" });
+    return;
+  }
 
   await departmentService.deleteDepartment(id);
   res.status(204).send();

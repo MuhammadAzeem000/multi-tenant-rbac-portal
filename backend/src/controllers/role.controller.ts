@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRoleSchema, roleListQuerySchema, updateRoleSchema } from "../interfaces/role";
 import * as roleService from "../services/role.service";
+import * as userRoleService from "../services/userRole.service";
 import { parseBigIntId, parseQuery } from "../utils";
 
 function parseId(req: Request, res: Response): bigint | null {
@@ -67,6 +68,11 @@ export async function updateRole(req: Request, res: Response) {
 export async function deleteRole(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
+
+  if (await userRoleService.isRoleAssignedToUser(req.auth!.userId, id)) {
+    res.status(409).json({ error: "You can't delete a role assigned to your own account" });
+    return;
+  }
 
   await roleService.deleteRole(id);
   res.status(204).send();

@@ -68,6 +68,11 @@ export async function deleteUser(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
+  if (req.auth!.userId === id) {
+    res.status(409).json({ error: "You can't delete your own account" });
+    return;
+  }
+
   await userService.deleteUser(id);
   res.status(204).send();
 }

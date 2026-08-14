@@ -62,6 +62,11 @@ export async function deleteTenant(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
+  if (req.auth!.tenantId === id) {
+    res.status(409).json({ error: "You can't delete the tenant you're currently logged into" });
+    return;
+  }
+
   await tenantService.deleteTenant(id);
   res.status(204).send();
 }

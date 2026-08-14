@@ -47,3 +47,11 @@ export async function revokeDepartmentFromUser(userId: bigint, departmentId: big
   const { count } = await prisma.userDepartment.deleteMany({ where: { userId, departmentId } });
   return count > 0;
 }
+
+export async function isDepartmentAssignedToUser(userId: bigint, departmentId: bigint): Promise<boolean> {
+  const assignment = await prisma.userDepartment.findFirst({
+    where: { userId, departmentId },
+    select: { userId: true },
+  });
+  return assignment !== null;
+}
