@@ -195,6 +195,44 @@ describe("tenant.controller", () => {
     );
   });
 
+  it("createTenant accepts blank email/websiteUrl/logoUrl instead of rejecting them as invalid format", async () => {
+    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+    const req = {
+      body: {
+        name: "Acme",
+        slug: "acme",
+        domain: "acme.com",
+        email: "",
+        websiteUrl: "",
+        logoUrl: "",
+      },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.createTenant(req, res);
+
+    expect(res.status).not.toHaveBeenCalledWith(400);
+    expect(res.status).toHaveBeenCalledWith(201);
+    const dataArg = mockedPrisma.tenant.create.mock.calls[0][0].data;
+    expect(dataArg.email).toBeUndefined();
+    expect(dataArg.websiteUrl).toBeUndefined();
+    expect(dataArg.logoUrl).toBeUndefined();
+  });
+
+  it("createTenant still rejects a genuinely malformed email/url", async () => {
+    const req = {
+      body: { name: "Acme", slug: "acme", domain: "acme.com", email: "not-an-email" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.createTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
+  });
+
   it("getTenantById responds 404 when the service finds nothing (self access)", async () => {
     mockedPrisma.tenant.findFirst.mockResolvedValue(null);
     const req = {
