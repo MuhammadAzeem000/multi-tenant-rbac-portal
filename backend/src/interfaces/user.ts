@@ -9,11 +9,20 @@ export const userListQuerySchema = paginationQuerySchema.extend({
 
 export type UserListQuery = z.infer<typeof userListQuerySchema>;
 
+export const emailLocalPartSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, "Email is required")
+  .max(64)
+  .regex(/^[a-zA-Z0-9._%+-]+$/, { message: "Only letters, numbers, and . _ % + - are allowed" });
+
 export const createUserSchema = z.object({
   tenantId: bigIntId,
   name: z.string().trim().min(1).max(150),
   username: z.string().trim().min(1).max(100),
-  email: z.string().trim().toLowerCase().email().max(255),
+  // The domain half of the email is always the tenant's domain — never client-supplied.
+  emailLocalPart: emailLocalPartSchema,
   phone: z.string().trim().max(50).optional(),
   password: z.string().min(8).max(255),
   jobTitle: z.string().trim().max(150).optional(),

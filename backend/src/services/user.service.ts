@@ -63,13 +63,20 @@ export function getUserById(id: bigint): Promise<UserResponse | null> {
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserResponse> {
+  // The email's domain half is never client-supplied — it always comes from the tenant record.
+  const tenant = await prisma.tenant.findUniqueOrThrow({
+    where: { id: input.tenantId },
+    select: { domain: true },
+  });
+  const email = `${input.emailLocalPart}@${tenant.domain}`;
+
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
   return prisma.user.create({
     data: {
       tenantId: input.tenantId,
       name: input.name,
       username: input.username,
-      email: input.email,
+      email,
       phone: input.phone,
       passwordHash,
       jobTitle: input.jobTitle,
@@ -82,12 +89,22 @@ export async function createUser(input: CreateUserInput): Promise<UserResponse> 
 }
 
 export async function updateUser(id: bigint, input: UpdateUserInput): Promise<UserResponse> {
-  const { password, ...rest } = input;
+  const { password, emailLocalPart, ...rest } = input;
+
+  let email: string | undefined;
+  if (emailLocalPart !== undefined) {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id },
+      select: { tenant: { select: { domain: true } } },
+    });
+    email = `${emailLocalPart}@${user.tenant.domain}`;
+  }
 
   return prisma.user.update({
     where: { id },
     data: {
       ...rest,
+      ...(email !== undefined && { email }),
       ...(password !== undefined && { passwordHash: await bcrypt.hash(password, SALT_ROUNDS) }),
     },
     select: userSelect,

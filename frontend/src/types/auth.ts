@@ -9,9 +9,10 @@ export interface LoginRequest {
 export interface RegisterRequest {
   tenantName: string
   tenantSlug: string
+  tenantDomain: string
   adminName: string
   adminUsername: string
-  adminEmail: string
+  adminEmailLocalPart: string
   adminPassword: string
 }
 

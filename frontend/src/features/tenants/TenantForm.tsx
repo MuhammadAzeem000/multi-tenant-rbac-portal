@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import type { Tenant } from '@/types/tenant'
 
+const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+
 const tenantFormSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(150),
   slug: z
@@ -17,6 +19,13 @@ const tenantFormSchema = z.object({
     .max(100)
     .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers, and hyphens only'),
   code: z.string().trim().max(50).optional().or(z.literal('')),
+  domain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'Domain is required')
+    .max(255)
+    .regex(domainRegex, 'Enter a valid domain, e.g. acme.com'),
   email: z.string().trim().email('Invalid email').max(255).optional().or(z.literal('')),
   phone: z.string().trim().max(50).optional().or(z.literal('')),
   websiteUrl: z.string().trim().url('Invalid URL').max(500).optional().or(z.literal('')),
@@ -43,6 +52,7 @@ export function TenantForm({ formId, defaultValues, onSubmit }: TenantFormProps)
       name: defaultValues?.name ?? '',
       slug: defaultValues?.slug ?? '',
       code: defaultValues?.code ?? '',
+      domain: defaultValues?.domain ?? '',
       email: defaultValues?.email ?? '',
       phone: defaultValues?.phone ?? '',
       websiteUrl: defaultValues?.websiteUrl ?? '',
@@ -56,6 +66,7 @@ export function TenantForm({ formId, defaultValues, onSubmit }: TenantFormProps)
         name: defaultValues.name,
         slug: defaultValues.slug,
         code: defaultValues.code ?? '',
+        domain: defaultValues.domain,
         email: defaultValues.email ?? '',
         phone: defaultValues.phone ?? '',
         websiteUrl: defaultValues.websiteUrl ?? '',
@@ -79,6 +90,16 @@ export function TenantForm({ formId, defaultValues, onSubmit }: TenantFormProps)
       </FormField>
       <FormField label="Code" error={errors.code?.message}>
         {(id) => <Input id={id} invalid={Boolean(errors.code)} {...register('code')} />}
+      </FormField>
+      <FormField
+        label="Domain"
+        required
+        hint="User emails in this organization are always @this domain."
+        error={errors.domain?.message}
+      >
+        {(id) => (
+          <Input id={id} placeholder="acme.com" invalid={Boolean(errors.domain)} {...register('domain')} />
+        )}
       </FormField>
       <FormField label="Email" error={errors.email?.message}>
         {(id) => <Input id={id} type="email" invalid={Boolean(errors.email)} {...register('email')} />}

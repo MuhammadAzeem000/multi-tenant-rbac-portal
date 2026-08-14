@@ -3,6 +3,7 @@ export interface Tenant {
   name: string
   slug: string
   code: string | null
+  domain: string
   description: string | null
   logoUrl: string | null
   websiteUrl: string | null
@@ -23,6 +24,7 @@ export interface CreateTenantInput {
   name: string
   slug: string
   code?: string
+  domain: string
   description?: string
   logoUrl?: string
   websiteUrl?: string

@@ -9,9 +9,13 @@ jest.mock("../config/prisma", () => ({
     user: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
+    },
+    tenant: {
+      findUniqueOrThrow: jest.fn(),
     },
   },
 }));
@@ -20,9 +24,13 @@ const mockedPrisma = prisma as unknown as {
   user: {
     findMany: jest.Mock;
     findFirst: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     count: jest.Mock;
+  };
+  tenant: {
+    findUniqueOrThrow: jest.Mock;
   };
 };
 
@@ -96,7 +104,8 @@ describe("user.service", () => {
     expect(user).toBeNull();
   });
 
-  it("createUser hashes the password instead of storing it raw", async () => {
+  it("createUser hashes the password and builds the email from the tenant's domain", async () => {
+    mockedPrisma.tenant.findUniqueOrThrow.mockResolvedValue({ domain: "example.com" });
     mockedPrisma.user.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: 1n, ...data }),
     );
@@ -105,14 +114,46 @@ describe("user.service", () => {
       tenantId: 1n,
       name: "Alice",
       username: "alice",
-      email: "alice@example.com",
+      emailLocalPart: "alice",
       password: "supersecret",
     });
 
+    expect(mockedPrisma.tenant.findUniqueOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 1n } }),
+    );
     const dataArg = mockedPrisma.user.create.mock.calls[0][0].data;
+    expect(dataArg.email).toBe("alice@example.com");
     expect(dataArg.passwordHash).toBeDefined();
     expect(dataArg.passwordHash).not.toBe("supersecret");
     expect(dataArg).not.toHaveProperty("password");
+    expect(dataArg).not.toHaveProperty("emailLocalPart");
+  });
+
+  it("updateUser recomputes the email from the tenant's domain when emailLocalPart changes", async () => {
+    mockedPrisma.user.findUniqueOrThrow.mockResolvedValue({ tenant: { domain: "example.com" } });
+    mockedPrisma.user.update.mockResolvedValue({ id: 1n });
+
+    await userService.updateUser(1n, { emailLocalPart: "newname" });
+
+    expect(mockedPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1n },
+        data: expect.objectContaining({ email: "newname@example.com" }),
+      }),
+    );
+    const dataArg = mockedPrisma.user.update.mock.calls[0][0].data;
+    expect(dataArg).not.toHaveProperty("emailLocalPart");
+  });
+
+  it("updateUser leaves the email untouched when emailLocalPart is not provided", async () => {
+    mockedPrisma.user.update.mockResolvedValue({ id: 1n });
+
+    await userService.updateUser(1n, { name: "Alice Updated" });
+
+    expect(mockedPrisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(mockedPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.not.objectContaining({ email: expect.anything() }) }),
+    );
   });
 
   it("deleteUser soft-deletes instead of removing the row", async () => {

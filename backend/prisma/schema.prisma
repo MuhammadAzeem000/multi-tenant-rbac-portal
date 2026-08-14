@@ -12,6 +12,7 @@ model Tenant {
   name        String  @db.VarChar(150)
   slug        String  @unique @db.VarChar(100)
   code        String? @unique @db.VarChar(50)
+  domain      String  @unique @db.VarChar(255)
   description String? @db.Text
   logoUrl     String? @map("logo_url") @db.VarChar(500)
   websiteUrl  String? @map("website_url") @db.VarChar(500)

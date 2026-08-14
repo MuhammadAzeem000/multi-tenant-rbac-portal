@@ -112,9 +112,10 @@ describe("auth.service register", () => {
   const registerInput = {
     tenantName: "Acme Corp",
     tenantSlug: "acme",
+    tenantDomain: "acme.test",
     adminName: "Alice Admin",
     adminUsername: "alice",
-    adminEmail: "alice@acme.test",
+    adminEmailLocalPart: "alice",
     adminPassword: "supersecret",
   };
 
@@ -129,9 +130,10 @@ describe("auth.service register", () => {
     expect(provisionTenant).toHaveBeenCalledWith({
       tenantName: "Acme Corp",
       tenantSlug: "acme",
+      tenantDomain: "acme.test",
       adminName: "Alice Admin",
       adminUsername: "alice",
-      adminEmail: "alice@acme.test",
+      adminEmailLocalPart: "alice",
       adminPassword: "supersecret",
     });
     expect(result.tokens.tokenType).toBe("Bearer");
@@ -210,9 +212,10 @@ describe("auth.controller", () => {
       body: {
         tenantName: "Acme Corp",
         tenantSlug: "Not A Valid Slug!",
+        tenantDomain: "acme.test",
         adminName: "Alice",
         adminUsername: "alice",
-        adminEmail: "alice@acme.test",
+        adminEmailLocalPart: "alice",
         adminPassword: "supersecret",
       },
     } as unknown as Request;
@@ -233,9 +236,10 @@ describe("auth.controller", () => {
       body: {
         tenantName: "Acme Corp",
         tenantSlug: "acme",
+        tenantDomain: "acme.test",
         adminName: "Alice",
         adminUsername: "alice",
-        adminEmail: "alice@acme.test",
+        adminEmailLocalPart: "alice",
         adminPassword: "supersecret",
       },
     } as unknown as Request;

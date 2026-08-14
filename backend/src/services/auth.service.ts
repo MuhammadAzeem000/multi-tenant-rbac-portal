@@ -103,9 +103,10 @@ export async function register(input: RegisterInput): Promise<{ tokens: AuthToke
   const { tenant: _tenant, user } = await provisionTenant({
     tenantName: input.tenantName,
     tenantSlug: input.tenantSlug,
+    tenantDomain: input.tenantDomain,
     adminName: input.adminName,
     adminUsername: input.adminUsername,
-    adminEmail: input.adminEmail,
+    adminEmailLocalPart: input.adminEmailLocalPart,
     adminPassword: input.adminPassword,
   });
 

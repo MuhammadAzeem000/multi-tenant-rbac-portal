@@ -47,13 +47,18 @@ describe("provisionTenant", () => {
     const result = await provisionTenant({
       tenantName: "Acme Corp",
       tenantSlug: "acme",
+      tenantDomain: "acme.test",
       adminName: "Alice Admin",
       adminUsername: "alice",
-      adminEmail: "alice@acme.test",
+      adminEmailLocalPart: "alice",
       adminPassword: "supersecret",
     });
 
-    expect(tenantService.createTenant).toHaveBeenCalledWith({ name: "Acme Corp", slug: "acme" });
+    expect(tenantService.createTenant).toHaveBeenCalledWith({
+      name: "Acme Corp",
+      slug: "acme",
+      domain: "acme.test",
+    });
     expect(mockedPrisma.module.upsert).toHaveBeenCalledTimes(7);
     expect(mockedPrisma.action.upsert).toHaveBeenCalledTimes(4);
     expect(mockedPrisma.permission.create).toHaveBeenCalledTimes(28);
@@ -69,7 +74,7 @@ describe("provisionTenant", () => {
       tenantId: 5n,
       name: "Alice Admin",
       username: "alice",
-      email: "alice@acme.test",
+      emailLocalPart: "alice",
       password: "supersecret",
     });
     expect(mockedPrisma.userRole.create).toHaveBeenCalledWith({

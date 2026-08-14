@@ -75,6 +75,7 @@ describe("tenant.service", () => {
             { name: { contains: "acme", mode: "insensitive" } },
             { slug: { contains: "acme", mode: "insensitive" } },
             { code: { contains: "acme", mode: "insensitive" } },
+            { domain: { contains: "acme", mode: "insensitive" } },
             { email: { contains: "acme", mode: "insensitive" } },
           ],
         },

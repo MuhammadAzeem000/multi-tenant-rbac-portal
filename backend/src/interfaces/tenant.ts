@@ -8,10 +8,21 @@ export const tenantListQuerySchema = paginationQuerySchema.extend({
 
 export type TenantListQuery = z.infer<typeof tenantListQuerySchema>;
 
+const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+
+export const domainSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(255)
+  .regex(domainRegex, { message: "Enter a valid domain, e.g. acme.com" });
+
 export const createTenantSchema = z.object({
   name: z.string().trim().min(1).max(150),
   slug: z.string().trim().min(1).max(100),
   code: z.string().trim().max(50).optional(),
+  domain: domainSchema,
   description: z.string().trim().optional(),
   logoUrl: z.string().trim().url().max(500).optional(),
   websiteUrl: z.string().trim().url().max(500).optional(),
@@ -37,6 +48,7 @@ export interface TenantResponse {
   name: string;
   slug: string;
   code: string | null;
+  domain: string;
   description: string | null;
   logoUrl: string | null;
   websiteUrl: string | null;

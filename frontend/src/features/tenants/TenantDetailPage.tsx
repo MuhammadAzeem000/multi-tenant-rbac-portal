@@ -95,6 +95,7 @@ export function TenantDetailPage() {
         <CardBody>
           <DescriptionList
             fields={[
+              { label: 'Domain', value: tenant.domain },
               { label: 'Email', value: tenant.email },
               { label: 'Phone', value: tenant.phone },
               { label: 'Website', value: tenant.websiteUrl },

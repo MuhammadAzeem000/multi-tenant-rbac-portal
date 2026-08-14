@@ -24,9 +24,10 @@ const ACTIONS = [
 export interface ProvisionTenantInput {
   tenantName: string;
   tenantSlug: string;
+  tenantDomain: string;
   adminName: string;
   adminUsername: string;
-  adminEmail: string;
+  adminEmailLocalPart: string;
   adminPassword: string;
 }
 
@@ -65,6 +66,7 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
   const tenant = await tenantService.createTenant({
     name: input.tenantName,
     slug: input.tenantSlug,
+    domain: input.tenantDomain,
   });
 
   const permissions = await Promise.all(
@@ -107,7 +109,7 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
     tenantId: tenant.id,
     name: input.adminName,
     username: input.adminUsername,
-    email: input.adminEmail,
+    emailLocalPart: input.adminEmailLocalPart,
     password: input.adminPassword,
   });
 

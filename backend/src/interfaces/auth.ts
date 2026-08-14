@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { UserResponse } from "./user";
+import { domainSchema } from "./tenant";
+import { emailLocalPartSchema, UserResponse } from "./user";
 
 export const loginSchema = z.object({
   tenantSlug: z.string().trim().min(1).max(100),
@@ -19,9 +20,10 @@ export const registerSchema = z.object({
     .min(1, "Organization slug is required")
     .max(100)
     .regex(/^[a-z0-9-]+$/, { message: "Lowercase letters, numbers, and hyphens only" }),
+  tenantDomain: domainSchema,
   adminName: z.string().trim().min(1, "Name is required").max(150),
   adminUsername: z.string().trim().min(1, "Username is required").max(100),
-  adminEmail: z.string().trim().toLowerCase().email().max(255),
+  adminEmailLocalPart: emailLocalPartSchema,
   adminPassword: z.string().min(8).max(255),
 });
 

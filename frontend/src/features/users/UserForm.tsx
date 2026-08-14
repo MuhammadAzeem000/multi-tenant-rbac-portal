@@ -1,16 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { tenantsApi } from '@/api/tenants.api'
 import { Button } from '@/components/ui/Button'
 import { FormField } from '@/components/ui/FormField'
 import { Input } from '@/components/ui/Input'
+import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types/user'
+
+const emailLocalPartSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, 'Email is required')
+  .max(64)
+  .regex(/^[a-zA-Z0-9._%+-]+$/, 'Only letters, numbers, and . _ % + - are allowed')
 
 const baseFields = {
   name: z.string().trim().min(1, 'Name is required').max(150),
   username: z.string().trim().min(1, 'Username is required').max(100),
-  email: z.string().trim().email('Invalid email').max(255),
+  emailLocalPart: emailLocalPartSchema,
   phone: z.string().trim().max(50).optional().or(z.literal('')),
   jobTitle: z.string().trim().max(150).optional().or(z.literal('')),
   employeeCode: z.string().trim().max(100).optional().or(z.literal('')),
@@ -38,7 +49,20 @@ interface UserFormProps {
   onSubmit: (values: UserFormValues) => void
 }
 
+function emailLocalPartOf(email: string): string {
+  return email.split('@')[0] ?? ''
+}
+
 export function UserForm({ formId, mode, defaultValues, onSubmit }: UserFormProps) {
+  const tenantId = useAuthStore((state) => state.user?.tenantId ?? '')
+  const tenantQuery = useQuery({
+    queryKey: ['tenants', tenantId],
+    queryFn: () => tenantsApi.get(tenantId),
+    enabled: Boolean(tenantId),
+    staleTime: 5 * 60_000,
+  })
+  const domain = tenantQuery.data?.domain
+
   const schema = mode === 'create' ? createUserFormSchema : editUserFormSchema
   const {
     register,
@@ -50,7 +74,7 @@ export function UserForm({ formId, mode, defaultValues, onSubmit }: UserFormProp
     defaultValues: {
       name: defaultValues?.name ?? '',
       username: defaultValues?.username ?? '',
-      email: defaultValues?.email ?? '',
+      emailLocalPart: defaultValues ? emailLocalPartOf(defaultValues.email) : '',
       phone: defaultValues?.phone ?? '',
       jobTitle: defaultValues?.jobTitle ?? '',
       employeeCode: defaultValues?.employeeCode ?? '',
@@ -63,7 +87,7 @@ export function UserForm({ formId, mode, defaultValues, onSubmit }: UserFormProp
       reset({
         name: defaultValues.name,
         username: defaultValues.username,
-        email: defaultValues.email,
+        emailLocalPart: emailLocalPartOf(defaultValues.email),
         phone: defaultValues.phone ?? '',
         jobTitle: defaultValues.jobTitle ?? '',
         employeeCode: defaultValues.employeeCode ?? '',
@@ -80,8 +104,25 @@ export function UserForm({ formId, mode, defaultValues, onSubmit }: UserFormProp
       <FormField label="Username" required error={errors.username?.message}>
         {(id) => <Input id={id} invalid={Boolean(errors.username)} {...register('username')} />}
       </FormField>
-      <FormField label="Email" required error={errors.email?.message}>
-        {(id) => <Input id={id} type="email" invalid={Boolean(errors.email)} {...register('email')} />}
+      <FormField
+        label="Email"
+        required
+        hint="The domain is fixed to your organization's domain."
+        error={errors.emailLocalPart?.message}
+      >
+        {(id) => (
+          <div className="flex">
+            <Input
+              id={id}
+              invalid={Boolean(errors.emailLocalPart)}
+              className="rounded-r-none"
+              {...register('emailLocalPart')}
+            />
+            <span className="inline-flex items-center whitespace-nowrap rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-2.5 text-sm text-slate-500">
+              @{domain ?? '…'}
+            </span>
+          </div>
+        )}
       </FormField>
       <FormField
         label={mode === 'create' ? 'Password' : 'New password'}

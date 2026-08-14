@@ -25,7 +25,7 @@ export interface CreateUserInput {
   tenantId: string
   name: string
   username: string
-  email: string
+  emailLocalPart: string
   phone?: string
   password: string
   jobTitle?: string

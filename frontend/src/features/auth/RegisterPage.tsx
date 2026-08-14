@@ -17,6 +17,8 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+
 const registerSchema = z
   .object({
     tenantName: z.string().trim().min(1, 'Organization name is required').max(150),
@@ -26,9 +28,22 @@ const registerSchema = z
       .min(1, 'Organization slug is required')
       .max(100)
       .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers, and hyphens only'),
+    tenantDomain: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(1, 'Organization domain is required')
+      .max(255)
+      .regex(domainRegex, 'Enter a valid domain, e.g. acme.com'),
     adminName: z.string().trim().min(1, 'Your name is required').max(150),
     adminUsername: z.string().trim().min(1, 'Username is required').max(100),
-    adminEmail: z.string().trim().min(1, 'Email is required').email('Invalid email').max(255),
+    adminEmailLocalPart: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(1, 'Email is required')
+      .max(64)
+      .regex(/^[a-zA-Z0-9._%+-]+$/, 'Only letters, numbers, and . _ % + - are allowed'),
     adminPassword: z.string().min(8, 'At least 8 characters').max(255),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
@@ -42,6 +57,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 export function RegisterPage() {
   const register = useRegister()
   const [slugTouched, setSlugTouched] = useState(false)
+  const [domainTouched, setDomainTouched] = useState(false)
   const {
     register: registerField,
     handleSubmit,
@@ -51,6 +67,7 @@ export function RegisterPage() {
   } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) })
 
   const tenantName = watch('tenantName')
+  const tenantDomain = watch('tenantDomain')
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
@@ -68,9 +85,10 @@ export function RegisterPage() {
             register.mutate({
               tenantName: values.tenantName,
               tenantSlug: values.tenantSlug,
+              tenantDomain: values.tenantDomain,
               adminName: values.adminName,
               adminUsername: values.adminUsername,
-              adminEmail: values.adminEmail,
+              adminEmailLocalPart: values.adminEmailLocalPart,
               adminPassword: values.adminPassword,
             }),
           )}
@@ -88,6 +106,9 @@ export function RegisterPage() {
                 {...registerField('tenantName', {
                   onChange: (e) => {
                     if (!slugTouched) setValue('tenantSlug', slugify(e.target.value))
+                    if (!domainTouched) {
+                      setValue('tenantDomain', `${slugify(e.target.value)}.com`)
+                    }
                   },
                 })}
               />
@@ -112,6 +133,24 @@ export function RegisterPage() {
             )}
           </FormField>
 
+          <FormField
+            label="Organization domain"
+            required
+            hint="Every user's email in this organization will be @this domain."
+            error={errors.tenantDomain?.message}
+          >
+            {(id) => (
+              <Input
+                id={id}
+                placeholder="acme.com"
+                invalid={Boolean(errors.tenantDomain)}
+                {...registerField('tenantDomain', {
+                  onChange: () => setDomainTouched(true),
+                })}
+              />
+            )}
+          </FormField>
+
           <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             Your admin account
           </p>
@@ -128,14 +167,24 @@ export function RegisterPage() {
             )}
           </FormField>
 
-          <FormField label="Email" required error={errors.adminEmail?.message}>
+          <FormField
+            label="Email"
+            required
+            hint="The domain is fixed to your organization's domain above."
+            error={errors.adminEmailLocalPart?.message}
+          >
             {(id) => (
-              <Input
-                id={id}
-                type="email"
-                invalid={Boolean(errors.adminEmail)}
-                {...registerField('adminEmail')}
-              />
+              <div className="flex">
+                <Input
+                  id={id}
+                  invalid={Boolean(errors.adminEmailLocalPart)}
+                  className="rounded-r-none"
+                  {...registerField('adminEmailLocalPart')}
+                />
+                <span className="inline-flex items-center whitespace-nowrap rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-2.5 text-sm text-slate-500">
+                  @{tenantDomain || 'acme.com'}
+                </span>
+              </div>
             )}
           </FormField>
 

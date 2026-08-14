@@ -75,7 +75,7 @@ export function TenantsListPage() {
         </div>
       ),
     }),
-    columnHelper.accessor('code', { header: 'Code', cell: (info) => info.getValue() ?? '—' }),
+    columnHelper.accessor('domain', { header: 'Domain' }),
     columnHelper.accessor('email', { header: 'Email', cell: (info) => info.getValue() ?? '—' }),
     columnHelper.accessor('isActive', {
       header: 'Status',
@@ -134,7 +134,7 @@ export function TenantsListPage() {
         onPageSizeChange={setPageSize}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search by name, slug, code, or email…"
+        searchPlaceholder="Search by name, slug, code, domain, or email…"
         isLoading={query.isLoading}
         isError={query.isError}
         errorMessage={getErrorMessage(query.error)}
