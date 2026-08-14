@@ -3,7 +3,7 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { AccessTokenClaims, AuthTokens, LoginInput, RefreshTokenClaims, RegisterInput } from "../interfaces/auth";
-import { UserResponse } from "../interfaces/user";
+import { SessionUserResponse } from "../interfaces/user";
 import { provisionTenant } from "./tenantProvisioning.service";
 
 const credentialSelect = {
@@ -28,6 +28,7 @@ const credentialSelect = {
   locale: true,
   createdAt: true,
   updatedAt: true,
+  tenant: { select: { isPlatform: true } },
 } as const;
 
 function signToken(payload: object, secret: string, expiresIn: string): string {
@@ -68,7 +69,7 @@ function issueTokens(user: { id: bigint; tenantId: bigint; username: string }): 
 export async function login(
   input: LoginInput,
   ip: string | null,
-): Promise<{ tokens: AuthTokens; user: UserResponse } | null> {
+): Promise<{ tokens: AuthTokens; user: SessionUserResponse } | null> {
   const tenant = await prisma.tenant.findFirst({
     where: { slug: input.tenantSlug, deletedAt: null, isActive: true },
     select: { id: true },
@@ -94,12 +95,15 @@ export async function login(
     data: { lastLoginAt: new Date(), lastLoginIp: ip ?? undefined },
   });
 
-  const { passwordHash: _passwordHash, ...safeUser } = user;
+  const { passwordHash: _passwordHash, tenant: userTenant, ...rest } = user;
+  const safeUser: SessionUserResponse = { ...rest, isPlatformUser: userTenant.isPlatform };
   const tokens = issueTokens(safeUser);
   return { tokens, user: safeUser };
 }
 
-export async function register(input: RegisterInput): Promise<{ tokens: AuthTokens; user: UserResponse }> {
+export async function register(
+  input: RegisterInput,
+): Promise<{ tokens: AuthTokens; user: SessionUserResponse }> {
   const { tenant: _tenant, user } = await provisionTenant({
     tenantName: input.tenantName,
     tenantSlug: input.tenantSlug,
@@ -110,8 +114,22 @@ export async function register(input: RegisterInput): Promise<{ tokens: AuthToke
     adminPassword: input.adminPassword,
   });
 
-  const tokens = issueTokens(user);
-  return { tokens, user };
+  // A self-registered tenant is never the platform tenant — that's only ever
+  // created by the bootstrap script.
+  const sessionUser: SessionUserResponse = { ...user, isPlatformUser: false };
+  const tokens = issueTokens(sessionUser);
+  return { tokens, user: sessionUser };
+}
+
+export async function getSessionUser(userId: bigint): Promise<SessionUserResponse | null> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: credentialSelect,
+  });
+  if (!user) return null;
+
+  const { passwordHash: _passwordHash, tenant, ...rest } = user;
+  return { ...rest, isPlatformUser: tenant.isPlatform };
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {

@@ -17,13 +17,8 @@ export async function getPermissions(req: Request, res: Response) {
   const query = parseQuery(permissionListQuerySchema, req, res);
   if (!query) return;
 
-  const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
-  if (req.query.tenantId && tenantId === null) {
-    res.status(400).json({ error: "Invalid tenantId" });
-    return;
-  }
-
-  const result = await permissionService.getPermissions({ tenantId: tenantId ?? undefined, ...query });
+  // Always scoped to the caller's own tenant — a tenantId in the query string is ignored.
+  const result = await permissionService.getPermissions({ tenantId: req.auth!.tenantId, ...query });
   res.json(result);
 }
 
@@ -46,7 +41,8 @@ export async function createPermission(req: Request, res: Response) {
     return;
   }
 
-  const permission = await permissionService.createPermission(result.data);
+  // The tenant is always the caller's own — never client-supplied.
+  const permission = await permissionService.createPermission({ ...result.data, tenantId: req.auth!.tenantId });
   res.status(201).json(permission);
 }
 

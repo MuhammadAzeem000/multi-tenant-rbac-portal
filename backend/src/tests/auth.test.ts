@@ -83,6 +83,7 @@ describe("auth.service login", () => {
       email: "alice@example.com",
       isActive: true,
       passwordHash: "hashed",
+      tenant: { isPlatform: false },
     });
     mockedBcryptCompare.mockResolvedValue(true);
     mockedPrisma.user.update.mockResolvedValue({});
@@ -94,6 +95,8 @@ describe("auth.service login", () => {
     expect(typeof result?.tokens.accessToken).toBe("string");
     expect(typeof result?.tokens.refreshToken).toBe("string");
     expect(result?.user).not.toHaveProperty("passwordHash");
+    expect(result?.user.isPlatformUser).toBe(false);
+    expect(result?.user).not.toHaveProperty("tenant");
     expect(mockedPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 1n },
@@ -105,6 +108,29 @@ describe("auth.service login", () => {
     expect(decoded.sub).toBe("1");
     expect(decoded.tenantId).toBe("1");
     expect(decoded.type).toBe("access");
+  });
+});
+
+describe("auth.service getSessionUser", () => {
+  it("returns null when the user no longer exists", async () => {
+    mockedPrisma.user.findFirst.mockResolvedValue(null);
+    expect(await authService.getSessionUser(1n)).toBeNull();
+  });
+
+  it("computes isPlatformUser from the user's tenant and strips passwordHash/tenant", async () => {
+    mockedPrisma.user.findFirst.mockResolvedValue({
+      id: 6n,
+      tenantId: 11n,
+      username: "platformadmin",
+      passwordHash: "hashed",
+      tenant: { isPlatform: true },
+    });
+
+    const result = await authService.getSessionUser(6n);
+
+    expect(result?.isPlatformUser).toBe(true);
+    expect(result).not.toHaveProperty("passwordHash");
+    expect(result).not.toHaveProperty("tenant");
   });
 });
 
@@ -248,6 +274,32 @@ describe("auth.controller", () => {
     await authController.register(req, res);
 
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("me responds 401 when the user no longer exists", async () => {
+    mockedPrisma.user.findFirst.mockResolvedValue(null);
+    const req = { auth: { userId: 1n, tenantId: 1n, username: "alice" } } as unknown as Request;
+    const res = mockRes();
+
+    await authController.me(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("me returns the session user including isPlatformUser", async () => {
+    mockedPrisma.user.findFirst.mockResolvedValue({
+      id: 6n,
+      tenantId: 11n,
+      username: "platformadmin",
+      passwordHash: "hashed",
+      tenant: { isPlatform: true },
+    });
+    const req = { auth: { userId: 6n, tenantId: 11n, username: "platformadmin" } } as unknown as Request;
+    const res = mockRes();
+
+    await authController.me(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ isPlatformUser: true }));
   });
 });
 

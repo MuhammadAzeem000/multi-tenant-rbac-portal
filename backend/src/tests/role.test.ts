@@ -77,6 +77,22 @@ describe("role.service", () => {
 });
 
 describe("role.controller", () => {
+  it("getRoles ignores a cross-tenant tenantId query param and always scopes to the caller's own tenant", async () => {
+    mockedPrisma.role.findMany.mockResolvedValue([]);
+    mockedPrisma.role.count.mockResolvedValue(0);
+    const req = {
+      query: { tenantId: "999" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.getRoles(req, res);
+
+    expect(mockedPrisma.role.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tenantId: 5n }) }),
+    );
+  });
+
   it("createRole responds 400 when name is missing", async () => {
     const req = { body: { tenantId: "1" } } as unknown as Request;
     const res = mockRes();
@@ -91,6 +107,7 @@ describe("role.controller", () => {
     mockedPrisma.role.create.mockResolvedValue({ id: 1n });
     const req = {
       body: { tenantId: "1", name: "Auditor", code: "" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -98,6 +115,7 @@ describe("role.controller", () => {
 
     const dataArg = mockedPrisma.role.create.mock.calls[0][0].data;
     expect(dataArg.code).toBeUndefined();
+    expect(dataArg.tenantId).toBe(5n);
     expect(res.status).toHaveBeenCalledWith(201);
   });
 

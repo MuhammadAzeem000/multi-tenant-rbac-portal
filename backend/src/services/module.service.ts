@@ -13,6 +13,7 @@ const moduleSelect = {
   sortOrder: true,
   isSystem: true,
   isActive: true,
+  isPlatformOnly: true,
   createdAt: true,
   updatedAt: true,
 } as const;

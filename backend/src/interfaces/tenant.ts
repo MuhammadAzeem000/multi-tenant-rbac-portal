@@ -60,6 +60,10 @@ export interface TenantResponse {
   currency: string | null;
   status: string;
   isActive: boolean;
+  isPlatform: boolean;
+  // Always the platform tenant's id, except for the platform tenant itself
+  // (null, since it's the root). Server-derived only — never accepted as input.
+  parentTenantId: bigint | null;
   settings: unknown;
   metadata: unknown;
   createdAt: Date;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { domainSchema } from "./tenant";
-import { emailLocalPartSchema, UserResponse } from "./user";
+import { emailLocalPartSchema, SessionUserResponse } from "./user";
 
 export const loginSchema = z.object({
   tenantSlug: z.string().trim().min(1).max(100),
@@ -52,5 +52,5 @@ export interface AuthTokens {
 }
 
 export interface LoginResponse extends AuthTokens {
-  user: UserResponse;
+  user: SessionUserResponse;
 }

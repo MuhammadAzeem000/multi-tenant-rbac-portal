@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { loginSchema, refreshSchema, registerSchema } from "../interfaces/auth";
 import * as authService from "../services/auth.service";
-import * as userService from "../services/user.service";
 
 export async function login(req: Request, res: Response) {
   const result = loginSchema.safeParse(req.body);
@@ -52,7 +51,7 @@ export async function logout(_req: Request, res: Response) {
 }
 
 export async function me(req: Request, res: Response) {
-  const user = await userService.getUserById(req.auth!.userId);
+  const user = await authService.getSessionUser(req.auth!.userId);
   if (!user) {
     res.status(401).json({ error: "User no longer exists" });
     return;

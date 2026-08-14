@@ -62,3 +62,10 @@ export interface UserResponse {
   createdAt: Date;
   updatedAt: Date | null;
 }
+
+// Only meaningful for "the logged-in user" responses (login/register/me) — whether
+// they belong to the platform tenant, used purely for client-side nav visibility.
+// The server-side authorization boundary is requirePlatformPermission, not this flag.
+export interface SessionUserResponse extends UserResponse {
+  isPlatformUser: boolean;
+}

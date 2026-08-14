@@ -18,13 +18,8 @@ export async function getDepartments(req: Request, res: Response) {
   const query = parseQuery(departmentListQuerySchema, req, res);
   if (!query) return;
 
-  const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
-  if (req.query.tenantId && tenantId === null) {
-    res.status(400).json({ error: "Invalid tenantId" });
-    return;
-  }
-
-  const result = await departmentService.getDepartments({ tenantId: tenantId ?? undefined, ...query });
+  // Always scoped to the caller's own tenant — a tenantId in the query string is ignored.
+  const result = await departmentService.getDepartments({ tenantId: req.auth!.tenantId, ...query });
   res.json(result);
 }
 
@@ -47,7 +42,8 @@ export async function createDepartment(req: Request, res: Response) {
     return;
   }
 
-  const department = await departmentService.createDepartment(result.data);
+  // The tenant is always the caller's own — never client-supplied.
+  const department = await departmentService.createDepartment({ ...result.data, tenantId: req.auth!.tenantId });
   res.status(201).json(department);
 }
 

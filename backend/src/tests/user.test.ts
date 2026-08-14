@@ -169,6 +169,39 @@ describe("user.service", () => {
 });
 
 describe("user.controller", () => {
+  it("getUsers ignores a cross-tenant tenantId query param and always scopes to the caller's own tenant", async () => {
+    mockedPrisma.user.findMany.mockResolvedValue([]);
+    mockedPrisma.user.count.mockResolvedValue(0);
+    const req = {
+      query: { tenantId: "999" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await userController.getUsers(req, res);
+
+    expect(mockedPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tenantId: 5n }) }),
+    );
+  });
+
+  it("createUser ignores a cross-tenant tenantId in the body and always uses the caller's own tenant", async () => {
+    mockedPrisma.tenant.findUniqueOrThrow.mockResolvedValue({ domain: "example.com" });
+    mockedPrisma.user.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+      Promise.resolve({ id: 1n, ...data }),
+    );
+    const req = {
+      body: { tenantId: "999", name: "Bob", username: "bob", emailLocalPart: "bob", password: "supersecret" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await userController.createUser(req, res);
+
+    const dataArg = mockedPrisma.user.create.mock.calls[0][0].data;
+    expect(dataArg.tenantId).toBe(5n);
+  });
+
   it("getUserById responds 400 for a non-numeric id", async () => {
     const req = { params: { id: "abc" } } as unknown as Request;
     const res = mockRes();

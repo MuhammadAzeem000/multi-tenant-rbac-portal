@@ -34,6 +34,9 @@ export interface ModuleResponse {
   sortOrder: number;
   isSystem: boolean;
   isActive: boolean;
+  // Read-only: never accepted via createModuleSchema/updateModuleSchema — only
+  // the bootstrap script may mark a module platform-only.
+  isPlatformOnly: boolean;
   createdAt: Date;
   updatedAt: Date | null;
 }

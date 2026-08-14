@@ -18,13 +18,8 @@ export async function getRoles(req: Request, res: Response) {
   const query = parseQuery(roleListQuerySchema, req, res);
   if (!query) return;
 
-  const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
-  if (req.query.tenantId && tenantId === null) {
-    res.status(400).json({ error: "Invalid tenantId" });
-    return;
-  }
-
-  const result = await roleService.getRoles({ tenantId: tenantId ?? undefined, ...query });
+  // Always scoped to the caller's own tenant — a tenantId in the query string is ignored.
+  const result = await roleService.getRoles({ tenantId: req.auth!.tenantId, ...query });
   res.json(result);
 }
 
@@ -47,7 +42,8 @@ export async function createRole(req: Request, res: Response) {
     return;
   }
 
-  const role = await roleService.createRole(result.data);
+  // The tenant is always the caller's own — never client-supplied.
+  const role = await roleService.createRole({ ...result.data, tenantId: req.auth!.tenantId });
   res.status(201).json(role);
 }
 

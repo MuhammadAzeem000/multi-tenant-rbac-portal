@@ -77,6 +77,22 @@ describe("permission.service", () => {
 });
 
 describe("permission.controller", () => {
+  it("getPermissions ignores a cross-tenant tenantId query param and always scopes to the caller's own tenant", async () => {
+    mockedPrisma.permission.findMany.mockResolvedValue([]);
+    mockedPrisma.permission.count.mockResolvedValue(0);
+    const req = {
+      query: { tenantId: "999" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await permissionController.getPermissions(req, res);
+
+    expect(mockedPrisma.permission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tenantId: 5n }) }),
+    );
+  });
+
   it("createPermission responds 400 when moduleId/actionId are missing", async () => {
     const req = { body: { tenantId: "1", name: "View users", code: "users.view" } } as unknown as Request;
     const res = mockRes();
@@ -85,6 +101,20 @@ describe("permission.controller", () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(mockedPrisma.permission.create).not.toHaveBeenCalled();
+  });
+
+  it("createPermission ignores a cross-tenant tenantId in the body and always uses the caller's own tenant", async () => {
+    mockedPrisma.permission.create.mockResolvedValue({ id: 1n });
+    const req = {
+      body: { tenantId: "999", moduleId: "1", actionId: "1", name: "View users", code: "users.view" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await permissionController.createPermission(req, res);
+
+    const dataArg = mockedPrisma.permission.create.mock.calls[0][0].data;
+    expect(dataArg.tenantId).toBe(5n);
   });
 
   it("getPermissionById responds 404 when the service finds nothing", async () => {

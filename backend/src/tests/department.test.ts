@@ -79,6 +79,22 @@ describe("department.service", () => {
 });
 
 describe("department.controller", () => {
+  it("getDepartments ignores a cross-tenant tenantId query param and always scopes to the caller's own tenant", async () => {
+    mockedPrisma.department.findMany.mockResolvedValue([]);
+    mockedPrisma.department.count.mockResolvedValue(0);
+    const req = {
+      query: { tenantId: "999" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.getDepartments(req, res);
+
+    expect(mockedPrisma.department.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tenantId: 5n }) }),
+    );
+  });
+
   it("createDepartment responds 400 when tenantId is missing", async () => {
     const req = { body: { name: "Engineering" } } as unknown as Request;
     const res = mockRes();
@@ -93,6 +109,7 @@ describe("department.controller", () => {
     mockedPrisma.department.create.mockResolvedValue({ id: 1n });
     const req = {
       body: { tenantId: "1", name: "Infrastructure", code: "" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -102,6 +119,7 @@ describe("department.controller", () => {
       expect.objectContaining({ data: expect.not.objectContaining({ code: "" }) }),
     );
     const dataArg = mockedPrisma.department.create.mock.calls[0][0].data;
+    expect(dataArg.tenantId).toBe(5n);
     expect(dataArg.code).toBeUndefined();
     expect(res.status).toHaveBeenCalledWith(201);
   });

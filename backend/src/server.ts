@@ -11,6 +11,7 @@ import { authenticate } from "./middlewares/authenticate";
 import { moduleRouter } from "./routes/module.routes";
 import { notFound } from "./middlewares/notFound";
 import { permissionRouter } from "./routes/permission.routes";
+import { platformRouter } from "./routes/platform.routes";
 import { roleRouter } from "./routes/role.routes";
 import { tenantRouter } from "./routes/tenant.routes";
 import { userRouter } from "./routes/user.routes";
@@ -40,6 +41,7 @@ app.use("/api/roles", authenticate, roleRouter);
 app.use("/api/modules", authenticate, moduleRouter);
 app.use("/api/actions", authenticate, actionRouter);
 app.use("/api/permissions", authenticate, permissionRouter);
+app.use("/api/platform", authenticate, platformRouter);
 
 app.use(notFound);
 app.use(errorHandler);

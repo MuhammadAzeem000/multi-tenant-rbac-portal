@@ -22,8 +22,16 @@ model Tenant {
   locale      String? @db.VarChar(20)
   currency    String? @db.VarChar(10)
 
-  status   String  @default("active") @db.VarChar(30)
-  isActive Boolean @default(true) @map("is_active")
+  status     String  @default("active") @db.VarChar(30)
+  isActive   Boolean @default(true) @map("is_active")
+  isPlatform Boolean @default(false) @map("is_platform")
+
+  // Every tenant's parent is the platform tenant; the platform tenant itself
+  // is the root and has no parent. Never client-settable — always derived
+  // server-side from whichever tenant currently has isPlatform = true.
+  parentTenantId BigInt? @map("parent_tenant_id")
+  parentTenant   Tenant? @relation("TenantHierarchy", fields: [parentTenantId], references: [id])
+  childTenants   Tenant[] @relation("TenantHierarchy")
 
   settings Json? @db.Json
   metadata Json? @db.Json
@@ -39,8 +47,11 @@ model Tenant {
   userRoles       UserRole[]
   userDepartments UserDepartment[]
   rolePermissions RolePermission[]
+  tenantModules   TenantModule[]
 
   @@index([status])
+  @@index([isPlatform])
+  @@index([parentTenantId])
   @@map("tenants")
 }
 
@@ -161,8 +172,12 @@ model Module {
   route     String? @db.VarChar(255)
   sortOrder Int     @default(0) @map("sort_order")
 
-  isSystem Boolean @default(false) @map("is_system")
-  isActive Boolean @default(true) @map("is_active")
+  isSystem       Boolean @default(false) @map("is_system")
+  isActive       Boolean @default(true) @map("is_active")
+  // Reserved for the platform tenant only. Not exposed on the create/update
+  // API — set only by the bootstrap script, so a regular tenant can never
+  // grant itself (or anyone else) access to a platform-only module.
+  isPlatformOnly Boolean @default(false) @map("is_platform_only")
 
   metadata Json? @db.Json
 
@@ -170,9 +185,11 @@ model Module {
   updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
 
-  permissions Permission[]
+  permissions   Permission[]
+  tenantModules TenantModule[]
 
   @@index([isActive])
+  @@index([isPlatformOnly])
   @@map("modules")
 }
 
@@ -291,4 +308,50 @@ model RolePermission {
   @@index([roleId])
   @@index([permissionId])
   @@map("role_permissions")
+}
+
+// Module entitlement: which modules a tenant is subscribed to / has access to.
+// Modules stay global rows (shared across tenants); this join is what scopes
+// them to a specific tenant's subscription rather than duplicating Module data.
+model TenantModule {
+  tenantId BigInt @map("tenant_id")
+  moduleId BigInt @map("module_id")
+
+  isEnabled  Boolean   @default(true) @map("is_enabled")
+  enabledAt  DateTime  @default(now()) @map("enabled_at") @db.Timestamp(6)
+  disabledAt DateTime? @map("disabled_at") @db.Timestamp(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy BigInt?  @map("created_by")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
+
+  @@id([tenantId, moduleId])
+  @@index([tenantId])
+  @@index([moduleId])
+  @@map("tenant_modules")
+}
+
+// No FK relations by design: an audit entry must survive the actor, target
+// tenant, or target record being deleted later, and must never block a delete.
+model AuditLog {
+  id BigInt @id @default(autoincrement())
+
+  actorUserId BigInt @map("actor_user_id")
+
+  action     String  @db.VarChar(100)
+  targetType String  @map("target_type") @db.VarChar(50)
+  targetId   BigInt? @map("target_id")
+  tenantId   BigInt? @map("tenant_id")
+
+  metadata Json? @db.Json
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([actorUserId])
+  @@index([tenantId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

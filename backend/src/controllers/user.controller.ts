@@ -17,13 +17,8 @@ export async function getUsers(req: Request, res: Response) {
   const query = parseQuery(userListQuerySchema, req, res);
   if (!query) return;
 
-  const tenantId = req.query.tenantId ? parseBigIntId(String(req.query.tenantId)) : undefined;
-  if (req.query.tenantId && tenantId === null) {
-    res.status(400).json({ error: "Invalid tenantId" });
-    return;
-  }
-
-  const result = await userService.getUsers({ tenantId: tenantId ?? undefined, ...query });
+  // Always scoped to the caller's own tenant — a tenantId in the query string is ignored.
+  const result = await userService.getUsers({ tenantId: req.auth!.tenantId, ...query });
   res.json(result);
 }
 
@@ -46,7 +41,8 @@ export async function createUser(req: Request, res: Response) {
     return;
   }
 
-  const user = await userService.createUser(result.data);
+  // The tenant is always the caller's own — never client-supplied.
+  const user = await userService.createUser({ ...result.data, tenantId: req.auth!.tenantId });
   res.status(201).json(user);
 }
 
