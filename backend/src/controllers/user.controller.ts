@@ -60,6 +60,11 @@ export async function updateUser(req: Request, res: Response) {
     return;
   }
 
+  if (req.auth!.userId === id && result.data.isActive !== undefined) {
+    res.status(409).json({ error: "You can't change your own active status" });
+    return;
+  }
+
   const user = await userService.updateUser(id, result.data);
   res.json(user);
 }

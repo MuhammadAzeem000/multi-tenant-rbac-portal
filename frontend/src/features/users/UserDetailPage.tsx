@@ -109,13 +109,20 @@ export function UserDetailPage() {
         </div>
         <div className="flex shrink-0 gap-2">
           {user.isActive ? (
-            <Button variant="secondary" onClick={() => setDeactivating(true)}>
+            <Button
+              variant="secondary"
+              disabled={isSelf}
+              title={isSelf ? "You can't deactivate your own account" : undefined}
+              onClick={() => setDeactivating(true)}
+            >
               <UserX className="size-3.5" aria-hidden="true" />
               Deactivate
             </Button>
           ) : (
             <Button
               variant="secondary"
+              disabled={isSelf}
+              title={isSelf ? "You can't activate your own account" : undefined}
               onClick={() => setActiveMutation.mutate(true)}
               loading={setActiveMutation.isPending}
             >
@@ -141,7 +148,7 @@ export function UserDetailPage() {
 
       {isSelf && (
         <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          This is your own account, so it can't be deleted from here.
+          This is your own account, so it can't be deleted or have its active status changed from here.
         </p>
       )}
 

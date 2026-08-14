@@ -110,8 +110,9 @@ export function UsersListPage() {
           <div className="flex justify-end gap-1">
             {user.isActive ? (
               <IconButton
-                label="Deactivate user"
+                label={isSelf ? "You can't deactivate your own account" : 'Deactivate user'}
                 variant="danger"
+                disabled={isSelf}
                 onClick={(e) => {
                   e.stopPropagation()
                   setDeactivateTarget(user)
@@ -121,12 +122,12 @@ export function UsersListPage() {
               </IconButton>
             ) : (
               <IconButton
-                label="Activate user"
+                label={isSelf ? "You can't activate your own account" : 'Activate user'}
+                disabled={isSelf || setActiveMutation.isPending}
                 onClick={(e) => {
                   e.stopPropagation()
                   setActiveMutation.mutate({ id: user.id, isActive: true })
                 }}
-                disabled={setActiveMutation.isPending}
               >
                 <UserCheck className="size-3.5" aria-hidden="true" />
               </IconButton>
