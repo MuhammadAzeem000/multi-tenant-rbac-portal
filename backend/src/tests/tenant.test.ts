@@ -126,6 +126,20 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
   });
 
+  it("createTenant normalizes an empty-string code to undefined instead of storing it literally", async () => {
+    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+    const req = {
+      body: { name: "Acme", slug: "acme", domain: "acme.com", code: "" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.createTenant(req, res);
+
+    const dataArg = mockedPrisma.tenant.create.mock.calls[0][0].data;
+    expect(dataArg.code).toBeUndefined();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it("getTenantById responds 404 when the service finds nothing", async () => {
     mockedPrisma.tenant.findFirst.mockResolvedValue(null);
     const req = { params: { id: "1" } } as unknown as Request;

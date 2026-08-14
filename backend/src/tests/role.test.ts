@@ -87,6 +87,20 @@ describe("role.controller", () => {
     expect(mockedPrisma.role.create).not.toHaveBeenCalled();
   });
 
+  it("createRole normalizes an empty-string code to undefined instead of storing it literally", async () => {
+    mockedPrisma.role.create.mockResolvedValue({ id: 1n });
+    const req = {
+      body: { tenantId: "1", name: "Auditor", code: "" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.createRole(req, res);
+
+    const dataArg = mockedPrisma.role.create.mock.calls[0][0].data;
+    expect(dataArg.code).toBeUndefined();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it("getRoleById responds 404 when the service finds nothing", async () => {
     mockedPrisma.role.findFirst.mockResolvedValue(null);
     const req = { params: { id: "1" } } as unknown as Request;

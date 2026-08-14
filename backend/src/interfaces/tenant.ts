@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalUniqueCode } from "./common";
 import { paginationQuerySchema } from "./pagination";
 
 export const tenantListQuerySchema = paginationQuerySchema.extend({
@@ -21,7 +22,7 @@ export const domainSchema = z
 export const createTenantSchema = z.object({
   name: z.string().trim().min(1).max(150),
   slug: z.string().trim().min(1).max(100),
-  code: z.string().trim().max(50).optional(),
+  code: optionalUniqueCode(50),
   domain: domainSchema,
   description: z.string().trim().optional(),
   logoUrl: z.string().trim().url().max(500).optional(),

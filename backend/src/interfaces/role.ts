@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bigIntId } from "./common";
+import { bigIntId, optionalUniqueCode } from "./common";
 import { paginationQuerySchema } from "./pagination";
 
 export const roleListQuerySchema = paginationQuerySchema.extend({
@@ -12,7 +12,7 @@ export type RoleListQuery = z.infer<typeof roleListQuerySchema>;
 export const createRoleSchema = z.object({
   tenantId: bigIntId,
   name: z.string().trim().min(1).max(100),
-  code: z.string().trim().max(100).optional(),
+  code: optionalUniqueCode(100),
   description: z.string().trim().optional(),
   isDefault: z.boolean().optional(),
   priority: z.number().int().optional(),

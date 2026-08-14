@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bigIntId } from "./common";
+import { bigIntId, optionalUniqueCode } from "./common";
 import { paginationQuerySchema } from "./pagination";
 
 export const departmentListQuerySchema = paginationQuerySchema.extend({
@@ -12,7 +12,7 @@ export type DepartmentListQuery = z.infer<typeof departmentListQuerySchema>;
 export const createDepartmentSchema = z.object({
   tenantId: bigIntId,
   name: z.string().trim().min(1).max(150),
-  code: z.string().trim().max(50).optional(),
+  code: optionalUniqueCode(50),
   description: z.string().trim().optional(),
   sortOrder: z.number().int().optional(),
 });

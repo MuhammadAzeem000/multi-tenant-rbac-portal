@@ -89,6 +89,23 @@ describe("department.controller", () => {
     expect(mockedPrisma.department.create).not.toHaveBeenCalled();
   });
 
+  it("createDepartment normalizes an empty-string code to undefined instead of storing it literally", async () => {
+    mockedPrisma.department.create.mockResolvedValue({ id: 1n });
+    const req = {
+      body: { tenantId: "1", name: "Infrastructure", code: "" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.createDepartment(req, res);
+
+    expect(mockedPrisma.department.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.not.objectContaining({ code: "" }) }),
+    );
+    const dataArg = mockedPrisma.department.create.mock.calls[0][0].data;
+    expect(dataArg.code).toBeUndefined();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it("getDepartmentById responds 404 when the service finds nothing", async () => {
     mockedPrisma.department.findFirst.mockResolvedValue(null);
     const req = { params: { id: "1" } } as unknown as Request;
