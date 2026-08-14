@@ -143,4 +143,31 @@ describe("tenant.controller", () => {
       expect.objectContaining({ skip: 0, take: 20 }),
     );
   });
+
+  it("deleteTenant responds 409 when deleting the tenant you're logged into", async () => {
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.deleteTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteTenant proceeds when deleting a different tenant", async () => {
+    mockedPrisma.tenant.update.mockResolvedValue({ id: 2n });
+    const req = {
+      params: { id: "2" },
+      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.deleteTenant(req, res);
+
+    expect(mockedPrisma.tenant.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 2n } }));
+    expect(res.status).toHaveBeenCalledWith(204);
+  });
 });

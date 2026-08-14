@@ -13,6 +13,9 @@ jest.mock("../config/prisma", () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    userDepartment: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -23,6 +26,9 @@ const mockedPrisma = prisma as unknown as {
     create: jest.Mock;
     update: jest.Mock;
     count: jest.Mock;
+  };
+  userDepartment: {
+    findFirst: jest.Mock;
   };
 };
 
@@ -89,5 +95,39 @@ describe("department.controller", () => {
     await departmentController.getDepartmentById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("deleteDepartment responds 409 when you belong to the department", async () => {
+    mockedPrisma.userDepartment.findFirst.mockResolvedValue({ userId: 9n });
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.deleteDepartment(req, res);
+
+    expect(mockedPrisma.userDepartment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 9n, departmentId: 1n } }),
+    );
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.department.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteDepartment proceeds when you don't belong to the department", async () => {
+    mockedPrisma.userDepartment.findFirst.mockResolvedValue(null);
+    mockedPrisma.department.update.mockResolvedValue({ id: 1n });
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.deleteDepartment(req, res);
+
+    expect(mockedPrisma.department.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 1n } }),
+    );
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 });

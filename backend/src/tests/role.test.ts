@@ -13,6 +13,9 @@ jest.mock("../config/prisma", () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    userRole: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -23,6 +26,9 @@ const mockedPrisma = prisma as unknown as {
     create: jest.Mock;
     update: jest.Mock;
     count: jest.Mock;
+  };
+  userRole: {
+    findFirst: jest.Mock;
   };
 };
 
@@ -87,5 +93,37 @@ describe("role.controller", () => {
     await roleController.getRoleById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("deleteRole responds 409 when the role is assigned to your own account", async () => {
+    mockedPrisma.userRole.findFirst.mockResolvedValue({ userId: 9n });
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.deleteRole(req, res);
+
+    expect(mockedPrisma.userRole.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 9n, roleId: 1n } }),
+    );
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.role.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteRole proceeds when the role isn't assigned to your own account", async () => {
+    mockedPrisma.userRole.findFirst.mockResolvedValue(null);
+    mockedPrisma.role.update.mockResolvedValue({ id: 1n });
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.deleteRole(req, res);
+
+    expect(mockedPrisma.role.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }));
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 });

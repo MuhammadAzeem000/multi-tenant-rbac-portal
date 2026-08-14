@@ -198,4 +198,31 @@ describe("user.controller", () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(mockedPrisma.user.create).not.toHaveBeenCalled();
   });
+
+  it("deleteUser responds 409 when deleting your own account", async () => {
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await userController.deleteUser(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteUser proceeds when deleting a different user", async () => {
+    mockedPrisma.user.update.mockResolvedValue({ id: 2n });
+    const req = {
+      params: { id: "2" },
+      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await userController.deleteUser(req, res);
+
+    expect(mockedPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 2n } }));
+    expect(res.status).toHaveBeenCalledWith(204);
+  });
 });
