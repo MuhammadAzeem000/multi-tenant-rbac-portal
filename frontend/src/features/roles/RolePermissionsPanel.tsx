@@ -31,7 +31,7 @@ export function RolePermissionsPanel({ roleId, tenantId }: RolePermissionsPanelP
 
   const availablePermissionsQuery = useQuery({
     queryKey: ['permissions', 'all', tenantId],
-    queryFn: () => permissionsApi.list({ tenantId, page: 1, pageSize: 200, isActive: true }),
+    queryFn: () => permissionsApi.list({ tenantId, page: 1, pageSize: 100, isActive: true }),
     enabled: assignOpen,
   })
 
