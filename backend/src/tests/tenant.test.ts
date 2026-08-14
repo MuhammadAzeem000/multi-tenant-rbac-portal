@@ -13,6 +13,10 @@ jest.mock("../config/prisma", () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    user: { count: jest.fn() },
+    role: { count: jest.fn() },
+    department: { count: jest.fn() },
+    permission: { count: jest.fn() },
   },
 }));
 
@@ -24,7 +28,18 @@ const mockedPrisma = prisma as unknown as {
     update: jest.Mock;
     count: jest.Mock;
   };
+  user: { count: jest.Mock };
+  role: { count: jest.Mock };
+  department: { count: jest.Mock };
+  permission: { count: jest.Mock };
 };
+
+function mockNoDependents() {
+  mockedPrisma.user.count.mockResolvedValue(0);
+  mockedPrisma.role.count.mockResolvedValue(0);
+  mockedPrisma.department.count.mockResolvedValue(0);
+  mockedPrisma.permission.count.mockResolvedValue(0);
+}
 
 function mockRes() {
   const res = {} as Response;
@@ -186,7 +201,8 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
   });
 
-  it("deleteTenant proceeds when deleting a different tenant", async () => {
+  it("deleteTenant proceeds when deleting a different tenant with no dependents", async () => {
+    mockNoDependents();
     mockedPrisma.tenant.update.mockResolvedValue({ id: 2n });
     const req = {
       params: { id: "2" },
@@ -199,4 +215,23 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 2n } }));
     expect(res.status).toHaveBeenCalledWith(204);
   });
+
+  it.each(["user", "role", "department", "permission"] as const)(
+    "deleteTenant responds 409 when the tenant still has %ss",
+    async (dependent) => {
+      mockNoDependents();
+      mockedPrisma[dependent].count.mockResolvedValue(1);
+
+      const req = {
+        params: { id: "2" },
+        auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      } as unknown as Request;
+      const res = mockRes();
+
+      await tenantController.deleteTenant(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+    },
+  );
 });

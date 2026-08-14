@@ -81,6 +81,16 @@ export function updateTenant(id: bigint, input: UpdateTenantInput): Promise<Tena
   });
 }
 
+export async function tenantHasDependents(id: bigint): Promise<boolean> {
+  const [userCount, roleCount, departmentCount, permissionCount] = await Promise.all([
+    prisma.user.count({ where: { tenantId: id, deletedAt: null } }),
+    prisma.role.count({ where: { tenantId: id, deletedAt: null } }),
+    prisma.department.count({ where: { tenantId: id, deletedAt: null } }),
+    prisma.permission.count({ where: { tenantId: id, deletedAt: null } }),
+  ]);
+  return userCount > 0 || roleCount > 0 || departmentCount > 0 || permissionCount > 0;
+}
+
 export function deleteTenant(id: bigint): Promise<TenantResponse> {
   return prisma.tenant.update({
     where: { id },

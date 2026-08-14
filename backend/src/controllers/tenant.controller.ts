@@ -72,6 +72,13 @@ export async function deleteTenant(req: Request, res: Response) {
     return;
   }
 
+  if (await tenantService.tenantHasDependents(id)) {
+    res.status(409).json({
+      error: "This tenant still has users, roles, departments, or permissions. Remove them before deleting the tenant.",
+    });
+    return;
+  }
+
   await tenantService.deleteTenant(id);
   res.status(204).send();
 }
