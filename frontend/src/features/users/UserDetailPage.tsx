@@ -13,6 +13,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Spinner } from '@/components/ui/Spinner'
 import { Tabs } from '@/components/ui/Tabs'
 import { getErrorMessage } from '@/lib/errors'
+import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
 import { UserDepartmentsPanel } from './UserDepartmentsPanel'
 import { UserForm, UserFormFooter } from './UserForm'
@@ -29,6 +30,7 @@ export function UserDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const currentUserId = useAuthStore((state) => state.user?.id)
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -86,6 +88,7 @@ export function UserDetailPage() {
 
   const user = query.data
   const formId = 'user-edit-form'
+  const isSelf = user.id === currentUserId
 
   return (
     <div>
@@ -124,12 +127,23 @@ export function UserDetailPage() {
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
           </Button>
-          <Button variant="danger-ghost" onClick={() => setDeleting(true)}>
+          <Button
+            variant="danger-ghost"
+            disabled={isSelf}
+            title={isSelf ? "You can't delete your own account" : undefined}
+            onClick={() => setDeleting(true)}
+          >
             <Trash2 className="size-3.5" aria-hidden="true" />
             Delete
           </Button>
         </div>
       </div>
+
+      {isSelf && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          This is your own account, so it can't be deleted from here.
+        </p>
+      )}
 
       <Tabs items={TABS} active={tab} onChange={setTab} />
 

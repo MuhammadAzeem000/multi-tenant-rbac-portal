@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useListState } from '@/hooks/useListState'
 import { getErrorMessage } from '@/lib/errors'
+import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
 import type { Tenant } from '@/types/tenant'
 import { TenantForm, TenantFormFooter } from './TenantForm'
@@ -24,6 +25,7 @@ const columnHelper = createColumnHelper<Tenant>()
 export function TenantsListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const currentTenantId = useAuthStore((state) => state.user?.tenantId)
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerTenant, setDrawerTenant] = useState<Tenant | 'new' | null>(null)
@@ -84,29 +86,33 @@ export function TenantsListPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: (info) => (
-        <div className="flex justify-end gap-1">
-          <IconButton
-            label="Edit tenant"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDrawerTenant(info.row.original)
-            }}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label="Delete tenant"
-            variant="danger"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteTarget(info.row.original)
-            }}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </IconButton>
-        </div>
-      ),
+      cell: (info) => {
+        const isOwnTenant = info.row.original.id === currentTenantId
+        return (
+          <div className="flex justify-end gap-1">
+            <IconButton
+              label="Edit tenant"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDrawerTenant(info.row.original)
+              }}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label={isOwnTenant ? "You can't delete the tenant you're logged into" : 'Delete tenant'}
+              variant="danger"
+              disabled={isOwnTenant}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(info.row.original)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        )
+      },
     }),
   ]
 

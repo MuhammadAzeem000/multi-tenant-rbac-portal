@@ -11,6 +11,7 @@ import { DescriptionList } from '@/components/ui/DescriptionList'
 import { Drawer } from '@/components/ui/Drawer'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Spinner } from '@/components/ui/Spinner'
+import { useMyDepartmentIds } from '@/hooks/useCurrentUserAssignments'
 import { getErrorMessage } from '@/lib/errors'
 import { toast } from '@/stores/toastStore'
 import { DepartmentForm, DepartmentFormFooter } from './DepartmentForm'
@@ -20,6 +21,7 @@ export function DepartmentDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const myDepartmentIds = useMyDepartmentIds()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -62,6 +64,7 @@ export function DepartmentDetailPage() {
 
   const department = query.data
   const formId = 'department-edit-form'
+  const isMine = myDepartmentIds.has(department.id)
 
   return (
     <div>
@@ -86,12 +89,23 @@ export function DepartmentDetailPage() {
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
           </Button>
-          <Button variant="danger-ghost" onClick={() => setDeleting(true)}>
+          <Button
+            variant="danger-ghost"
+            disabled={isMine}
+            title={isMine ? "You can't delete a department you belong to" : undefined}
+            onClick={() => setDeleting(true)}
+          >
             <Trash2 className="size-3.5" aria-hidden="true" />
             Delete
           </Button>
         </div>
       </div>
+
+      {isMine && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          You belong to this department, so it can't be deleted from here.
+        </p>
+      )}
 
       <Card>
         <CardBody>

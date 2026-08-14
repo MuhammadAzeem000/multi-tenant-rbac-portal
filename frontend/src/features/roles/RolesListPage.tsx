@@ -12,6 +12,7 @@ import { DataTable } from '@/components/ui/DataTable'
 import { Drawer } from '@/components/ui/Drawer'
 import { IconButton } from '@/components/ui/IconButton'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { useMyRoleIds } from '@/hooks/useCurrentUserAssignments'
 import { useListState } from '@/hooks/useListState'
 import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
@@ -26,6 +27,7 @@ export function RolesListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const tenantId = useAuthStore((state) => state.user?.tenantId ?? '')
+  const myRoleIds = useMyRoleIds()
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerRole, setDrawerRole] = useState<Role | 'new' | null>(null)
@@ -96,30 +98,40 @@ export function RolesListPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: (info) => (
-        <div className="flex justify-end gap-1">
-          <IconButton
-            label="Edit role"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDrawerRole(info.row.original)
-            }}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label="Delete role"
-            variant="danger"
-            disabled={info.row.original.isSystem}
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteTarget(info.row.original)
-            }}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </IconButton>
-        </div>
-      ),
+      cell: (info) => {
+        const role = info.row.original
+        const isMine = myRoleIds.has(role.id)
+        const disableDelete = role.isSystem || isMine
+        const deleteLabel = role.isSystem
+          ? "System roles can't be deleted"
+          : isMine
+            ? "You can't delete a role assigned to you"
+            : 'Delete role'
+        return (
+          <div className="flex justify-end gap-1">
+            <IconButton
+              label="Edit role"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDrawerRole(role)
+              }}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label={deleteLabel}
+              variant="danger"
+              disabled={disableDelete}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(role)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        )
+      },
     }),
   ]
 

@@ -12,6 +12,7 @@ import { Drawer } from '@/components/ui/Drawer'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Spinner } from '@/components/ui/Spinner'
 import { Tabs } from '@/components/ui/Tabs'
+import { useMyRoleIds } from '@/hooks/useCurrentUserAssignments'
 import { getErrorMessage } from '@/lib/errors'
 import { toast } from '@/stores/toastStore'
 import { RoleForm, RoleFormFooter } from './RoleForm'
@@ -27,6 +28,7 @@ export function RoleDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const myRoleIds = useMyRoleIds()
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -70,6 +72,13 @@ export function RoleDetailPage() {
 
   const role = query.data
   const formId = 'role-edit-form'
+  const isMine = myRoleIds.has(role.id)
+  const disableDelete = role.isSystem || isMine
+  const deleteTitle = role.isSystem
+    ? "System roles can't be deleted"
+    : isMine
+      ? "You can't delete a role assigned to you"
+      : undefined
 
   return (
     <div>
@@ -93,12 +102,23 @@ export function RoleDetailPage() {
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
           </Button>
-          <Button variant="danger-ghost" disabled={role.isSystem} onClick={() => setDeleting(true)}>
+          <Button
+            variant="danger-ghost"
+            disabled={disableDelete}
+            title={deleteTitle}
+            onClick={() => setDeleting(true)}
+          >
             <Trash2 className="size-3.5" aria-hidden="true" />
             Delete
           </Button>
         </div>
       </div>
+
+      {isMine && !role.isSystem && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          This role is assigned to your account, so it can't be deleted from here.
+        </p>
+      )}
 
       <Tabs items={TABS} active={tab} onChange={setTab} />
 

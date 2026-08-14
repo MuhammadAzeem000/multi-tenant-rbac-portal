@@ -26,6 +26,7 @@ export function UsersListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const tenantId = useAuthStore((state) => state.user?.tenantId ?? '')
+  const currentUserId = useAuthStore((state) => state.user?.id)
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerUser, setDrawerUser] = useState<User | 'new' | null>(null)
@@ -104,6 +105,7 @@ export function UsersListPage() {
       header: '',
       cell: (info) => {
         const user = info.row.original
+        const isSelf = user.id === currentUserId
         return (
           <div className="flex justify-end gap-1">
             {user.isActive ? (
@@ -139,8 +141,9 @@ export function UsersListPage() {
               <Pencil className="size-3.5" aria-hidden="true" />
             </IconButton>
             <IconButton
-              label="Delete user"
+              label={isSelf ? "You can't delete your own account" : 'Delete user'}
               variant="danger"
+              disabled={isSelf}
               onClick={(e) => {
                 e.stopPropagation()
                 setDeleteTarget(user)

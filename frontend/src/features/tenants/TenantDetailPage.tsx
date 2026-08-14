@@ -12,6 +12,7 @@ import { Drawer } from '@/components/ui/Drawer'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Spinner } from '@/components/ui/Spinner'
 import { getErrorMessage } from '@/lib/errors'
+import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
 import { TenantForm, TenantFormFooter } from './TenantForm'
 import type { TenantFormValues } from './TenantForm'
@@ -20,6 +21,7 @@ export function TenantDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const currentTenantId = useAuthStore((state) => state.user?.tenantId)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -62,6 +64,7 @@ export function TenantDetailPage() {
 
   const tenant = query.data
   const formId = 'tenant-edit-form'
+  const isOwnTenant = tenant.id === currentTenantId
 
   return (
     <div>
@@ -84,12 +87,23 @@ export function TenantDetailPage() {
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
           </Button>
-          <Button variant="danger-ghost" onClick={() => setDeleting(true)}>
+          <Button
+            variant="danger-ghost"
+            disabled={isOwnTenant}
+            title={isOwnTenant ? "You can't delete the tenant you're logged into" : undefined}
+            onClick={() => setDeleting(true)}
+          >
             <Trash2 className="size-3.5" aria-hidden="true" />
             Delete
           </Button>
         </div>
       </div>
+
+      {isOwnTenant && (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          This is the organization you're currently logged into, so it can't be deleted from here.
+        </p>
+      )}
 
       <Card>
         <CardBody>

@@ -12,6 +12,7 @@ import { DataTable } from '@/components/ui/DataTable'
 import { Drawer } from '@/components/ui/Drawer'
 import { IconButton } from '@/components/ui/IconButton'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { useMyDepartmentIds } from '@/hooks/useCurrentUserAssignments'
 import { useListState } from '@/hooks/useListState'
 import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
@@ -26,6 +27,7 @@ export function DepartmentsListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const tenantId = useAuthStore((state) => state.user?.tenantId ?? '')
+  const myDepartmentIds = useMyDepartmentIds()
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerDepartment, setDrawerDepartment] = useState<Department | 'new' | null>(null)
@@ -87,29 +89,34 @@ export function DepartmentsListPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: (info) => (
-        <div className="flex justify-end gap-1">
-          <IconButton
-            label="Edit department"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDrawerDepartment(info.row.original)
-            }}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label="Delete department"
-            variant="danger"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteTarget(info.row.original)
-            }}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </IconButton>
-        </div>
-      ),
+      cell: (info) => {
+        const department = info.row.original
+        const isMine = myDepartmentIds.has(department.id)
+        return (
+          <div className="flex justify-end gap-1">
+            <IconButton
+              label="Edit department"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDrawerDepartment(department)
+              }}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label={isMine ? "You can't delete a department you belong to" : 'Delete department'}
+              variant="danger"
+              disabled={isMine}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(department)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        )
+      },
     }),
   ]
 
