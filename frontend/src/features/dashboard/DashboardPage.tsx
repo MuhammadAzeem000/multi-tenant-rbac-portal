@@ -45,6 +45,7 @@ function SummaryCard({ label, to, icon: Icon, isLoading, value }: SummaryCardPro
 export function DashboardPage() {
   const user = useAuthStore((state) => state.user)
   const tenantId = user?.tenantId ?? ''
+  const isPlatformUser = user?.isPlatformUser ?? false
 
   const usersQuery = useQuery({
     queryKey: ['users', 'count', tenantId],
@@ -66,9 +67,11 @@ export function DashboardPage() {
     queryFn: () => permissionsApi.list({ tenantId, page: 1, pageSize: 1 }),
     enabled: Boolean(tenantId),
   })
+  // Listing tenants is platform-exclusive — a regular user only ever has one.
   const tenantsQuery = useQuery({
     queryKey: ['tenants', 'count'],
     queryFn: () => tenantsApi.list({ page: 1, pageSize: 1 }),
+    enabled: isPlatformUser,
   })
 
   return (
@@ -104,13 +107,15 @@ export function DashboardPage() {
           isLoading={permissionsQuery.isLoading}
           value={permissionsQuery.data?.pagination.total}
         />
-        <SummaryCard
-          label="Tenants"
-          to="/tenants"
-          icon={Building2}
-          isLoading={tenantsQuery.isLoading}
-          value={tenantsQuery.data?.pagination.total}
-        />
+        {isPlatformUser && (
+          <SummaryCard
+            label="Tenants"
+            to="/tenants"
+            icon={Building2}
+            isLoading={tenantsQuery.isLoading}
+            value={tenantsQuery.data?.pagination.total}
+          />
+        )}
       </div>
     </div>
   )

@@ -88,9 +88,12 @@ export function TenantDetailPage() {
 
   return (
     <div>
-      <Link to="/tenants" className="mb-3 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+      <Link
+        to={isPlatformUser ? '/tenants' : '/'}
+        className="mb-3 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+      >
         <ArrowLeft className="size-3.5" aria-hidden="true" />
-        Back to tenants
+        {isPlatformUser ? 'Back to tenants' : 'Back to dashboard'}
       </Link>
 
       <div className="mb-4 flex items-start justify-between gap-4">

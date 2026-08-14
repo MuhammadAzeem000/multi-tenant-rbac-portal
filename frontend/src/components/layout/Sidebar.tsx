@@ -1,13 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { ShieldHalf } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { navItems } from './navConfig'
+import { useNavItems } from './navConfig'
 
 interface SidebarProps {
   onNavigate?: () => void
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
+  const navItems = useNavItems()
+
   return (
     <div className="flex h-full w-60 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-12 items-center gap-2 border-b border-slate-200 px-4">

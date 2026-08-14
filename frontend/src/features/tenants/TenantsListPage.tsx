@@ -2,7 +2,7 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { tenantsApi } from '@/api/tenants.api'
 import { ActiveFilterSelect } from '@/components/ui/ActiveFilterSelect'
 import { Button } from '@/components/ui/Button'
@@ -26,6 +26,7 @@ export function TenantsListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const currentTenantId = useAuthStore((state) => state.user?.tenantId)
+  const isPlatformUser = useAuthStore((state) => state.user?.isPlatformUser ?? false)
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerTenant, setDrawerTenant] = useState<Tenant | 'new' | null>(null)
@@ -36,6 +37,7 @@ export function TenantsListPage() {
     queryKey: ['tenants', { page, pageSize, search, isActive }],
     queryFn: () => tenantsApi.list({ page, pageSize, search, isActive }),
     placeholderData: (prev) => prev,
+    enabled: isPlatformUser,
   })
 
   const createMutation = useMutation({
@@ -78,6 +80,12 @@ export function TenantsListPage() {
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
+
+  // Browsing every tenant is a platform-exclusive capability — a regular
+  // tenant admin only ever has one tenant, so send them straight to it.
+  if (!isPlatformUser) {
+    return <Navigate to={`/tenants/${currentTenantId}`} replace />
+  }
 
   const columns = [
     columnHelper.accessor('name', {
