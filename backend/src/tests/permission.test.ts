@@ -13,6 +13,9 @@ jest.mock("../config/prisma", () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    rolePermission: {
+      count: jest.fn(),
+    },
   },
 }));
 
@@ -22,6 +25,9 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
+  };
+  rolePermission: {
     count: jest.Mock;
   };
 };
@@ -89,5 +95,28 @@ describe("permission.controller", () => {
     await permissionController.getPermissionById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("deletePermission responds 409 when the permission is still assigned to a role", async () => {
+    mockedPrisma.rolePermission.count.mockResolvedValue(1);
+    const req = { params: { id: "1" } } as unknown as Request;
+    const res = mockRes();
+
+    await permissionController.deletePermission(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.permission.update).not.toHaveBeenCalled();
+  });
+
+  it("deletePermission proceeds when the permission isn't assigned to any role", async () => {
+    mockedPrisma.rolePermission.count.mockResolvedValue(0);
+    mockedPrisma.permission.update.mockResolvedValue({ id: 1n });
+    const req = { params: { id: "1" } } as unknown as Request;
+    const res = mockRes();
+
+    await permissionController.deletePermission(req, res);
+
+    expect(mockedPrisma.permission.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }));
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 });

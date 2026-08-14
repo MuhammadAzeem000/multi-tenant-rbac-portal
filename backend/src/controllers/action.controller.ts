@@ -62,6 +62,13 @@ export async function deleteAction(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
+  if (await actionService.actionHasPermissions(id)) {
+    res.status(409).json({
+      error: "This action still has permissions defined for it. Remove them before deleting the action.",
+    });
+    return;
+  }
+
   await actionService.deleteAction(id);
   res.status(204).send();
 }

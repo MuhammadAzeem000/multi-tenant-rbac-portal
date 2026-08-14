@@ -53,6 +53,11 @@ export function updateAction(id: bigint, input: UpdateActionInput): Promise<Acti
   return prisma.action.update({ where: { id }, data: input, select: actionSelect });
 }
 
+export async function actionHasPermissions(id: bigint): Promise<boolean> {
+  const count = await prisma.permission.count({ where: { actionId: id, deletedAt: null } });
+  return count > 0;
+}
+
 export function deleteAction(id: bigint): Promise<ActionResponse> {
   return prisma.action.update({
     where: { id },

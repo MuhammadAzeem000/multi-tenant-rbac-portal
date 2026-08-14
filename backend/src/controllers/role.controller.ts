@@ -79,6 +79,11 @@ export async function deleteRole(req: Request, res: Response) {
     return;
   }
 
+  if (await roleService.roleHasUserAssignments(id)) {
+    res.status(409).json({ error: "This role is still assigned to one or more users. Remove those assignments before deleting the role." });
+    return;
+  }
+
   await roleService.deleteRole(id);
   res.status(204).send();
 }

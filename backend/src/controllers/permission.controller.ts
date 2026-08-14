@@ -68,6 +68,13 @@ export async function deletePermission(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
+  if (await permissionService.permissionHasRoleAssignments(id)) {
+    res.status(409).json({
+      error: "This permission is still assigned to one or more roles. Remove those assignments before deleting the permission.",
+    });
+    return;
+  }
+
   await permissionService.deletePermission(id);
   res.status(204).send();
 }

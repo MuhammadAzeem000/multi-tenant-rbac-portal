@@ -13,6 +13,9 @@ jest.mock("../config/prisma", () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    permission: {
+      count: jest.fn(),
+    },
   },
 }));
 
@@ -22,6 +25,9 @@ const mockedPrisma = prisma as unknown as {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
+  };
+  permission: {
     count: jest.Mock;
   };
 };
@@ -89,5 +95,28 @@ describe("action.controller", () => {
     await actionController.getActionById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("deleteAction responds 409 when the action still has permissions", async () => {
+    mockedPrisma.permission.count.mockResolvedValue(1);
+    const req = { params: { id: "1" } } as unknown as Request;
+    const res = mockRes();
+
+    await actionController.deleteAction(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.action.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteAction proceeds when the action has no permissions", async () => {
+    mockedPrisma.permission.count.mockResolvedValue(0);
+    mockedPrisma.action.update.mockResolvedValue({ id: 1n });
+    const req = { params: { id: "1" } } as unknown as Request;
+    const res = mockRes();
+
+    await actionController.deleteAction(req, res);
+
+    expect(mockedPrisma.action.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }));
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 });

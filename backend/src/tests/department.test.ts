@@ -15,6 +15,7 @@ jest.mock("../config/prisma", () => ({
     },
     userDepartment: {
       findFirst: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -29,6 +30,7 @@ const mockedPrisma = prisma as unknown as {
   };
   userDepartment: {
     findFirst: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -145,8 +147,27 @@ describe("department.controller", () => {
     expect(mockedPrisma.department.update).not.toHaveBeenCalled();
   });
 
-  it("deleteDepartment proceeds when you don't belong to the department", async () => {
+  it("deleteDepartment responds 409 when other users are assigned to the department", async () => {
     mockedPrisma.userDepartment.findFirst.mockResolvedValue(null);
+    mockedPrisma.userDepartment.count.mockResolvedValue(1);
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await departmentController.deleteDepartment(req, res);
+
+    expect(mockedPrisma.userDepartment.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { departmentId: 1n, user: { deletedAt: null } } }),
+    );
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.department.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteDepartment proceeds when no one is assigned to the department", async () => {
+    mockedPrisma.userDepartment.findFirst.mockResolvedValue(null);
+    mockedPrisma.userDepartment.count.mockResolvedValue(0);
     mockedPrisma.department.update.mockResolvedValue({ id: 1n });
     const req = {
       params: { id: "1" },

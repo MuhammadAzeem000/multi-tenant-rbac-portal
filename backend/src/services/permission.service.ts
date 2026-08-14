@@ -61,6 +61,11 @@ export function updatePermission(id: bigint, input: UpdatePermissionInput): Prom
   return prisma.permission.update({ where: { id }, data: input, select: permissionSelect });
 }
 
+export async function permissionHasRoleAssignments(id: bigint): Promise<boolean> {
+  const count = await prisma.rolePermission.count({ where: { permissionId: id, role: { deletedAt: null } } });
+  return count > 0;
+}
+
 export function deletePermission(id: bigint): Promise<PermissionResponse> {
   return prisma.permission.update({
     where: { id },

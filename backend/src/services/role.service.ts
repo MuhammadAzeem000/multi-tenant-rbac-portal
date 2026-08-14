@@ -57,6 +57,11 @@ export function updateRole(id: bigint, input: UpdateRoleInput): Promise<RoleResp
   return prisma.role.update({ where: { id }, data: input, select: roleSelect });
 }
 
+export async function roleHasUserAssignments(id: bigint): Promise<boolean> {
+  const count = await prisma.userRole.count({ where: { roleId: id, user: { deletedAt: null } } });
+  return count > 0;
+}
+
 export function deleteRole(id: bigint): Promise<RoleResponse> {
   return prisma.role.update({
     where: { id },

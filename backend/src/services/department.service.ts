@@ -56,6 +56,11 @@ export function updateDepartment(id: bigint, input: UpdateDepartmentInput): Prom
   return prisma.department.update({ where: { id }, data: input, select: departmentSelect });
 }
 
+export async function departmentHasUserAssignments(id: bigint): Promise<boolean> {
+  const count = await prisma.userDepartment.count({ where: { departmentId: id, user: { deletedAt: null } } });
+  return count > 0;
+}
+
 export function deleteDepartment(id: bigint): Promise<DepartmentResponse> {
   return prisma.department.update({
     where: { id },

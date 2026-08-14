@@ -15,6 +15,7 @@ jest.mock("../config/prisma", () => ({
     },
     userRole: {
       findFirst: jest.fn(),
+      count: jest.fn(),
     },
   },
 }));
@@ -29,6 +30,7 @@ const mockedPrisma = prisma as unknown as {
   };
   userRole: {
     findFirst: jest.Mock;
+    count: jest.Mock;
   };
 };
 
@@ -143,8 +145,27 @@ describe("role.controller", () => {
     expect(mockedPrisma.role.update).not.toHaveBeenCalled();
   });
 
-  it("deleteRole proceeds when the role isn't assigned to your own account", async () => {
+  it("deleteRole responds 409 when the role is still assigned to other users", async () => {
     mockedPrisma.userRole.findFirst.mockResolvedValue(null);
+    mockedPrisma.userRole.count.mockResolvedValue(1);
+    const req = {
+      params: { id: "1" },
+      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await roleController.deleteRole(req, res);
+
+    expect(mockedPrisma.userRole.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { roleId: 1n, user: { deletedAt: null } } }),
+    );
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.role.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteRole proceeds when the role isn't assigned to anyone", async () => {
+    mockedPrisma.userRole.findFirst.mockResolvedValue(null);
+    mockedPrisma.userRole.count.mockResolvedValue(0);
     mockedPrisma.role.update.mockResolvedValue({ id: 1n });
     const req = {
       params: { id: "1" },

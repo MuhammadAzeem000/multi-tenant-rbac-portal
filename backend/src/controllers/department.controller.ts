@@ -82,6 +82,13 @@ export async function deleteDepartment(req: Request, res: Response) {
     return;
   }
 
+  if (await departmentService.departmentHasUserAssignments(id)) {
+    res.status(409).json({
+      error: "This department still has users assigned to it. Remove those assignments before deleting the department.",
+    });
+    return;
+  }
+
   await departmentService.deleteDepartment(id);
   res.status(204).send();
 }

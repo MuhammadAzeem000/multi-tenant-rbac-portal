@@ -55,6 +55,11 @@ export function updateModule(id: bigint, input: UpdateModuleInput): Promise<Modu
   return prisma.module.update({ where: { id }, data: input, select: moduleSelect });
 }
 
+export async function moduleHasPermissions(id: bigint): Promise<boolean> {
+  const count = await prisma.permission.count({ where: { moduleId: id, deletedAt: null } });
+  return count > 0;
+}
+
 export function deleteModule(id: bigint): Promise<ModuleResponse> {
   return prisma.module.update({
     where: { id },

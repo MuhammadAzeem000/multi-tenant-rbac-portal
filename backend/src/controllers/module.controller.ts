@@ -62,6 +62,13 @@ export async function deleteModule(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
+  if (await moduleService.moduleHasPermissions(id)) {
+    res.status(409).json({
+      error: "This module still has permissions defined for it. Remove them before deleting the module.",
+    });
+    return;
+  }
+
   await moduleService.deleteModule(id);
   res.status(204).send();
 }
