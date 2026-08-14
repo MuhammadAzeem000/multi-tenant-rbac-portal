@@ -14,6 +14,8 @@ export interface Tenant {
   currency: string | null
   status: string
   isActive: boolean
+  isPlatform: boolean
+  parentTenantId: string | null
   settings: unknown
   metadata: unknown
   createdAt: string

@@ -87,7 +87,7 @@ async function main() {
     PLATFORM_MODULES.map((module) =>
       prisma.module.upsert({
         where: { code: module.code },
-        update: { isPlatformOnly: true },
+        update: { name: module.name, sortOrder: module.sortOrder, isPlatformOnly: true },
         create: { ...module, isSystem: true, isPlatformOnly: true },
       }),
     ),
@@ -109,14 +109,15 @@ async function main() {
     modules.flatMap((module) =>
       actions.map((action) => {
         const code = `${module.code}.${action.code}`;
+        const name = `${action.name} ${module.name}`;
         return prisma.permission.upsert({
           where: { tenantId_code: { tenantId: tenant!.id, code } },
-          update: {},
+          update: { name },
           create: {
             tenantId: tenant!.id,
             moduleId: module.id,
             actionId: action.id,
-            name: `${action.name} ${module.name}`,
+            name,
             code,
             isSystem: true,
           },

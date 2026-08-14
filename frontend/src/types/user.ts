@@ -19,6 +19,9 @@ export interface User {
   locale: string | null
   createdAt: string
   updatedAt: string | null
+  // Only present on "the logged-in user" (login/register/me responses) — not
+  // on ordinary user list/detail objects. Used purely for nav visibility.
+  isPlatformUser?: boolean
 }
 
 export interface CreateUserInput {

@@ -11,17 +11,26 @@ import { DescriptionList } from '@/components/ui/DescriptionList'
 import { Drawer } from '@/components/ui/Drawer'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Spinner } from '@/components/ui/Spinner'
+import { Tabs } from '@/components/ui/Tabs'
 import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
 import { TenantForm, TenantFormFooter } from './TenantForm'
 import type { TenantFormValues } from './TenantForm'
+import { TenantModulesPanel } from './TenantModulesPanel'
+
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'modules', label: 'Modules' },
+]
 
 export function TenantDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const currentTenantId = useAuthStore((state) => state.user?.tenantId)
+  const isPlatformUser = useAuthStore((state) => state.user?.isPlatformUser ?? false)
+  const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
@@ -139,29 +148,44 @@ export function TenantDetailPage() {
         </p>
       )}
 
-      <Card>
-        <CardBody>
-          <DescriptionList
-            fields={[
-              { label: 'Domain', value: tenant.domain },
-              { label: 'Email', value: tenant.email },
-              { label: 'Phone', value: tenant.phone },
-              { label: 'Website', value: tenant.websiteUrl },
-              { label: 'Currency', value: tenant.currency },
-              { label: 'Timezone', value: tenant.timezone },
-              { label: 'Locale', value: tenant.locale },
-              { label: 'Status', value: tenant.status },
-              { label: 'Created', value: new Date(tenant.createdAt).toLocaleString() },
-            ]}
-          />
-          {tenant.description && (
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="text-xs font-medium text-slate-400">Description</p>
-              <p className="mt-0.5 text-sm text-slate-700">{tenant.description}</p>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      {isPlatformUser ? (
+        <Tabs items={TABS} active={tab} onChange={setTab} />
+      ) : null}
+
+      <div className={isPlatformUser ? 'pt-4' : undefined}>
+        {tab === 'overview' && (
+          <Card>
+            <CardBody>
+              <DescriptionList
+                fields={[
+                  { label: 'Domain', value: tenant.domain },
+                  { label: 'Email', value: tenant.email },
+                  { label: 'Phone', value: tenant.phone },
+                  { label: 'Website', value: tenant.websiteUrl },
+                  { label: 'Currency', value: tenant.currency },
+                  { label: 'Timezone', value: tenant.timezone },
+                  { label: 'Locale', value: tenant.locale },
+                  { label: 'Status', value: tenant.status },
+                  { label: 'Created', value: new Date(tenant.createdAt).toLocaleString() },
+                ]}
+              />
+              {tenant.description && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-xs font-medium text-slate-400">Description</p>
+                  <p className="mt-0.5 text-sm text-slate-700">{tenant.description}</p>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+        {isPlatformUser && tab === 'modules' && (
+          <Card>
+            <CardBody>
+              <TenantModulesPanel tenantId={tenant.id} tenantIsPlatform={tenant.isPlatform} />
+            </CardBody>
+          </Card>
+        )}
+      </div>
 
       <Drawer
         open={editing}
