@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { modulesApi } from '@/api/modules.api'
@@ -22,6 +22,7 @@ export function ModuleDetailPage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   const query = useQuery({
     queryKey: ['modules', id],
@@ -44,6 +45,16 @@ export function ModuleDetailPage() {
       toast.success('Module deleted')
       queryClient.invalidateQueries({ queryKey: ['modules'] })
       navigate('/modules')
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const setActiveMutation = useMutation({
+    mutationFn: (nextIsActive: boolean) => modulesApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, nextIsActive) => {
+      toast.success(nextIsActive ? 'Module activated' : 'Module deactivated')
+      queryClient.invalidateQueries({ queryKey: ['modules'] })
+      setDeactivating(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -80,6 +91,28 @@ export function ModuleDetailPage() {
           <p className="mt-0.5 font-mono text-sm text-slate-500">{appModule.code}</p>
         </div>
         <div className="flex shrink-0 gap-2">
+          {appModule.isActive ? (
+            <Button
+              variant="secondary"
+              disabled={appModule.isSystem}
+              title={appModule.isSystem ? "System modules can't be deactivated" : undefined}
+              onClick={() => setDeactivating(true)}
+            >
+              <PowerOff className="size-3.5" aria-hidden="true" />
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={appModule.isSystem}
+              title={appModule.isSystem ? "System modules can't be deactivated" : undefined}
+              onClick={() => setActiveMutation.mutate(true)}
+              loading={setActiveMutation.isPending}
+            >
+              <Power className="size-3.5" aria-hidden="true" />
+              Activate
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setEditing(true)}>
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
@@ -130,6 +163,17 @@ export function ModuleDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeleting(false)}
+      />
+
+      <ConfirmDialog
+        open={deactivating}
+        title="Deactivate module"
+        description={`Deactivate "${appModule.name}"? Permissions scoped to it will no longer be usable until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => setActiveMutation.mutate(false)}
+        onCancel={() => setDeactivating(false)}
       />
     </div>
   )

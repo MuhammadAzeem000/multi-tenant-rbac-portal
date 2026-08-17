@@ -1,6 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { modulesApi } from '@/api/modules.api'
@@ -28,6 +28,7 @@ export function ModulesListPage() {
 
   const [drawerModule, setDrawerModule] = useState<AppModule | 'new' | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AppModule | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<AppModule | null>(null)
 
   const query = useQuery({
     queryKey: ['modules', { page, pageSize, search, isActive }],
@@ -65,6 +66,17 @@ export function ModulesListPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, isActive: nextIsActive }: { id: string; isActive: boolean }) =>
+      modulesApi.update(id, { isActive: nextIsActive }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isActive ? 'Module activated' : 'Module deactivated')
+      queryClient.invalidateQueries({ queryKey: ['modules'] })
+      setDeactivateTarget(null)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   const columns = [
     columnHelper.accessor('name', {
       header: 'Module',
@@ -89,30 +101,62 @@ export function ModulesListPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: (info) => (
-        <div className="flex justify-end gap-1">
-          <IconButton
-            label="Edit module"
-            onClick={(e) => {
-              e.stopPropagation()
-              setDrawerModule(info.row.original)
-            }}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </IconButton>
-          <IconButton
-            label="Delete module"
-            variant="danger"
-            disabled={info.row.original.isSystem}
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteTarget(info.row.original)
-            }}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </IconButton>
-        </div>
-      ),
+      cell: (info) => {
+        const appModule = info.row.original
+        const activeToggleLabel = appModule.isSystem
+          ? "System modules can't be deactivated"
+          : appModule.isActive
+            ? 'Deactivate module'
+            : 'Activate module'
+        return (
+          <div className="flex justify-end gap-1">
+            {appModule.isActive ? (
+              <IconButton
+                label={activeToggleLabel}
+                variant="danger"
+                disabled={appModule.isSystem}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeactivateTarget(appModule)
+                }}
+              >
+                <PowerOff className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            ) : (
+              <IconButton
+                label={activeToggleLabel}
+                disabled={appModule.isSystem || setActiveMutation.isPending}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMutation.mutate({ id: appModule.id, isActive: true })
+                }}
+              >
+                <Power className="size-3.5" aria-hidden="true" />
+              </IconButton>
+            )}
+            <IconButton
+              label="Edit module"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDrawerModule(appModule)
+              }}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label="Delete module"
+              variant="danger"
+              disabled={appModule.isSystem}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(appModule)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        )
+      },
     }),
   ]
 
@@ -182,6 +226,17 @@ export function ModulesListPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        title="Deactivate module"
+        description={`Deactivate "${deactivateTarget?.name}"? Permissions scoped to it will no longer be usable until reactivated.`}
+        confirmLabel="Deactivate"
+        danger
+        loading={setActiveMutation.isPending}
+        onConfirm={() => deactivateTarget && setActiveMutation.mutate({ id: deactivateTarget.id, isActive: false })}
+        onCancel={() => setDeactivateTarget(null)}
       />
     </div>
   )
