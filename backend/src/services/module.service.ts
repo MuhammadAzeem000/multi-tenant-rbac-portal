@@ -6,14 +6,12 @@ import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/
 const moduleSelect = {
   id: true,
   name: true,
-  code: true,
   description: true,
   icon: true,
   route: true,
   sortOrder: true,
   isSystem: true,
   isActive: true,
-  isPlatformOnly: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -28,10 +26,7 @@ export async function getModules(params: {
     deletedAt: null,
     ...(params.isActive !== undefined && { isActive: params.isActive }),
     ...(params.search && {
-      OR: [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { code: { contains: params.search, mode: "insensitive" } },
-      ],
+      OR: [{ name: { contains: params.search, mode: "insensitive" } }],
     }),
   };
   const { skip, take } = toSkipTake(params.page, params.pageSize);

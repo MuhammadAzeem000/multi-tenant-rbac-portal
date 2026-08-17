@@ -10,11 +10,9 @@ export async function getModulesForTenant(tenantId: bigint): Promise<TenantModul
     select: {
       id: true,
       name: true,
-      code: true,
       description: true,
       icon: true,
       sortOrder: true,
-      isPlatformOnly: true,
       tenantModules: {
         where: { tenantId },
         select: { isEnabled: true, enabledAt: true, disabledAt: true },
@@ -28,11 +26,9 @@ export async function getModulesForTenant(tenantId: bigint): Promise<TenantModul
     return {
       moduleId: module.id,
       name: module.name,
-      code: module.code,
       description: module.description,
       icon: module.icon,
       sortOrder: module.sortOrder,
-      isPlatformOnly: module.isPlatformOnly,
       isEnabled: entitlement?.isEnabled ?? false,
       enabledAt: entitlement?.enabledAt ?? null,
       disabledAt: entitlement?.disabledAt ?? null,
@@ -40,11 +36,11 @@ export async function getModulesForTenant(tenantId: bigint): Promise<TenantModul
   });
 }
 
-// Grants every non-platform-only module to a newly created regular tenant.
-// skipDuplicates keeps this safe to call more than once for the same tenant.
+// Grants every active module to a newly created tenant. skipDuplicates keeps
+// this safe to call more than once for the same tenant.
 export async function grantStandardModuleAccess(tenantId: bigint, actorUserId?: bigint): Promise<void> {
   const modules = await prisma.module.findMany({
-    where: { isPlatformOnly: false, isActive: true, deletedAt: null },
+    where: { isActive: true, deletedAt: null },
     select: { id: true },
   });
   if (modules.length === 0) return;
@@ -90,7 +86,7 @@ export async function setModuleEnabled(
     update: isEnabled ? { isEnabled, enabledAt: now, disabledAt: null } : { isEnabled, disabledAt: now },
     include: {
       module: {
-        select: { name: true, code: true, description: true, icon: true, sortOrder: true, isPlatformOnly: true },
+        select: { name: true, description: true, icon: true, sortOrder: true },
       },
     },
   });
@@ -98,11 +94,9 @@ export async function setModuleEnabled(
   return {
     moduleId: entitlement.moduleId,
     name: entitlement.module.name,
-    code: entitlement.module.code,
     description: entitlement.module.description,
     icon: entitlement.module.icon,
     sortOrder: entitlement.module.sortOrder,
-    isPlatformOnly: entitlement.module.isPlatformOnly,
     isEnabled: entitlement.isEnabled,
     enabledAt: entitlement.enabledAt,
     disabledAt: entitlement.disabledAt,

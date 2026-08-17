@@ -10,28 +10,12 @@ datasource db {
 model Tenant {
   id          BigInt  @id @default(autoincrement())
   name        String  @db.VarChar(150)
-  slug        String  @unique @db.VarChar(100)
-  code        String? @unique @db.VarChar(50)
   domain      String  @unique @db.VarChar(255)
   description String? @db.Text
-  logoUrl     String? @map("logo_url") @db.VarChar(500)
-  websiteUrl  String? @map("website_url") @db.VarChar(500)
-  email       String? @db.VarChar(255)
-  phone       String? @db.VarChar(50)
-  timezone    String? @db.VarChar(100)
-  locale      String? @db.VarChar(20)
-  currency    String? @db.VarChar(10)
 
   status     String  @default("active") @db.VarChar(30)
   isActive   Boolean @default(true) @map("is_active")
   isPlatform Boolean @default(false) @map("is_platform")
-
-  // Every tenant's parent is the platform tenant; the platform tenant itself
-  // is the root and has no parent. Never client-settable — always derived
-  // server-side from whichever tenant currently has isPlatform = true.
-  parentTenantId BigInt? @map("parent_tenant_id")
-  parentTenant   Tenant? @relation("TenantHierarchy", fields: [parentTenantId], references: [id])
-  childTenants   Tenant[] @relation("TenantHierarchy")
 
   settings Json? @db.Json
   metadata Json? @db.Json
@@ -51,7 +35,6 @@ model Tenant {
 
   @@index([status])
   @@index([isPlatform])
-  @@index([parentTenantId])
   @@map("tenants")
 }
 
@@ -60,26 +43,16 @@ model User {
   tenantId BigInt @map("tenant_id")
 
   name         String  @db.VarChar(150)
-  username     String  @db.VarChar(100)
   email        String  @db.VarChar(255)
-  phone        String? @db.VarChar(50)
   passwordHash String? @map("password_hash") @db.VarChar(255)
 
   avatarUrl    String? @map("avatar_url") @db.VarChar(500)
-  jobTitle     String? @map("job_title") @db.VarChar(150)
-  employeeCode String? @map("employee_code") @db.VarChar(100)
 
   status          String    @default("active") @db.VarChar(30)
   isActive        Boolean   @default(true) @map("is_active")
-  isVerified      Boolean   @default(false) @map("is_verified")
-  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamp(6)
-  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamp(6)
 
   lastLoginAt DateTime? @map("last_login_at") @db.Timestamp(6)
   lastLoginIp String?   @map("last_login_ip") @db.VarChar(45)
-
-  timezone String? @db.VarChar(100)
-  locale   String? @db.VarChar(20)
 
   metadata Json? @db.Json
 
@@ -92,9 +65,7 @@ model User {
   userRoles       UserRole[]
   userDepartments UserDepartment[]
 
-  @@unique([tenantId, username])
   @@unique([tenantId, email])
-  @@unique([tenantId, employeeCode])
   @@index([tenantId])
   @@index([status])
   @@map("users")
@@ -105,7 +76,6 @@ model Department {
   tenantId BigInt @map("tenant_id")
 
   name        String  @db.VarChar(150)
-  code        String? @db.VarChar(50)
   description String? @db.Text
 
   status   String  @default("active") @db.VarChar(30)
@@ -124,7 +94,6 @@ model Department {
   userDepartments UserDepartment[]
 
   @@unique([tenantId, name])
-  @@unique([tenantId, code])
   @@index([tenantId])
   @@map("departments")
 }
@@ -134,14 +103,10 @@ model Role {
   tenantId BigInt @map("tenant_id")
 
   name        String  @db.VarChar(100)
-  code        String? @db.VarChar(100)
   description String? @db.Text
 
   isSystem  Boolean @default(false) @map("is_system")
-  isDefault Boolean @default(false) @map("is_default")
   isActive  Boolean @default(true) @map("is_active")
-
-  priority Int @default(0)
 
   metadata Json? @db.Json
 
@@ -155,7 +120,6 @@ model Role {
   rolePermissions RolePermission[]
 
   @@unique([tenantId, name])
-  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([isActive])
   @@map("roles")
@@ -165,7 +129,6 @@ model Module {
   id BigInt @id @default(autoincrement())
 
   name        String  @db.VarChar(100)
-  code        String  @unique @db.VarChar(100)
   description String? @db.Text
 
   icon      String? @db.VarChar(100)
@@ -174,10 +137,6 @@ model Module {
 
   isSystem       Boolean @default(false) @map("is_system")
   isActive       Boolean @default(true) @map("is_active")
-  // Reserved for the platform tenant only. Not exposed on the create/update
-  // API — set only by the bootstrap script, so a regular tenant can never
-  // grant itself (or anyone else) access to a platform-only module.
-  isPlatformOnly Boolean @default(false) @map("is_platform_only")
 
   metadata Json? @db.Json
 
@@ -189,7 +148,6 @@ model Module {
   tenantModules TenantModule[]
 
   @@index([isActive])
-  @@index([isPlatformOnly])
   @@map("modules")
 }
 
@@ -197,12 +155,10 @@ model Action {
   id BigInt @id @default(autoincrement())
 
   name        String  @db.VarChar(100)
-  code        String  @unique @db.VarChar(100)
   description String? @db.Text
 
   sortOrder Int @default(0) @map("sort_order")
 
-  isSystem Boolean @default(false) @map("is_system")
   isActive Boolean @default(true) @map("is_active")
 
   metadata Json? @db.Json
@@ -225,10 +181,8 @@ model Permission {
   actionId BigInt @map("action_id")
 
   name        String  @db.VarChar(150)
-  code        String  @db.VarChar(150)
   description String? @db.Text
 
-  isSystem Boolean @default(false) @map("is_system")
   isActive Boolean @default(true) @map("is_active")
 
   metadata Json? @db.Json
@@ -244,7 +198,6 @@ model Permission {
   rolePermissions RolePermission[]
 
   @@unique([tenantId, moduleId, actionId])
-  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([moduleId])
   @@index([actionId])
@@ -310,9 +263,6 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// Module entitlement: which modules a tenant is subscribed to / has access to.
-// Modules stay global rows (shared across tenants); this join is what scopes
-// them to a specific tenant's subscription rather than duplicating Module data.
 model TenantModule {
   tenantId BigInt @map("tenant_id")
   moduleId BigInt @map("module_id")
@@ -333,8 +283,6 @@ model TenantModule {
   @@map("tenant_modules")
 }
 
-// No FK relations by design: an audit entry must survive the actor, target
-// tenant, or target record being deleted later, and must never block a delete.
 model AuditLog {
   id BigInt @id @default(autoincrement())
 

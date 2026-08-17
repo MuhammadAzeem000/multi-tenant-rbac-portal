@@ -10,24 +10,24 @@ export const platformRouter = Router();
 // always stays confined to the caller's own tenant, with no escape hatch.
 platformRouter.get(
   "/tenants/:id/users",
-  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "view"),
+  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "View"),
   asyncHandler(platformController.getUsersForTenant),
 );
 
 platformRouter.get(
   "/audit-logs",
-  requirePlatformPermission(PLATFORM_MODULES.AUDIT_LOGS, "view"),
+  requirePlatformPermission(PLATFORM_MODULES.AUDIT_LOGS, "View"),
   asyncHandler(platformController.getAuditLogs),
 );
 
 // Module entitlement ("subscription") management — which modules a tenant has access to.
 platformRouter.get(
   "/tenants/:id/modules",
-  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "view"),
+  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "View"),
   asyncHandler(platformController.getTenantModules),
 );
 platformRouter.patch(
   "/tenants/:id/modules/:moduleId",
-  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "update"),
+  requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Update"),
   asyncHandler(platformController.setTenantModule),
 );

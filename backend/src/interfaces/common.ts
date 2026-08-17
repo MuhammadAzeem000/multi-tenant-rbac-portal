@@ -22,11 +22,3 @@ export function emptyToUndefined<T extends z.ZodTypeAny>(schema: T) {
   return z.preprocess((value) => (value === "" ? undefined : value), schema.optional());
 }
 
-/**
- * An optional "code" field backed by a unique constraint. An empty string must be
- * normalized to undefined — otherwise every record submitted with a blank code would
- * collide on the unique index instead of leaving the column unset.
- */
-export function optionalUniqueCode(maxLength: number) {
-  return emptyToUndefined(z.string().trim().max(maxLength));
-}

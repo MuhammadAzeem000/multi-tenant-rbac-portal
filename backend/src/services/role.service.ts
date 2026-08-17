@@ -7,12 +7,9 @@ const roleSelect = {
   id: true,
   tenantId: true,
   name: true,
-  code: true,
   description: true,
   isSystem: true,
-  isDefault: true,
   isActive: true,
-  priority: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -29,16 +26,13 @@ export async function getRoles(params: {
     ...(params.tenantId !== undefined && { tenantId: params.tenantId }),
     ...(params.isActive !== undefined && { isActive: params.isActive }),
     ...(params.search && {
-      OR: [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { code: { contains: params.search, mode: "insensitive" } },
-      ],
+      OR: [{ name: { contains: params.search, mode: "insensitive" } }],
     }),
   };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 
   const [data, total] = await Promise.all([
-    prisma.role.findMany({ where, select: roleSelect, orderBy: { priority: "desc" }, skip, take }),
+    prisma.role.findMany({ where, select: roleSelect, orderBy: { name: "asc" }, skip, take }),
     prisma.role.count({ where }),
   ]);
 

@@ -18,13 +18,13 @@ function parseId(req: Request, res: Response): bigint | null {
 
 // A tenant is always reachable by its own members (self); reachable by anyone
 // else only if they're a platform-tenant member holding the matching permission.
-async function canAccessTenant(req: Request, id: bigint, actionCode: string): Promise<boolean> {
+async function canAccessTenant(req: Request, id: bigint, actionName: string): Promise<boolean> {
   if (req.auth!.tenantId === id) return true;
 
   const isPlatform = await platformAuthService.isPlatformTenant(req.auth!.tenantId);
   if (!isPlatform) return false;
 
-  return platformAuthService.userHasPermission(req.auth!.userId, PLATFORM_MODULES.TENANTS, actionCode);
+  return platformAuthService.userHasPermission(req.auth!.userId, PLATFORM_MODULES.TENANTS, actionName);
 }
 
 export async function getTenants(req: Request, res: Response) {
@@ -39,7 +39,7 @@ export async function getTenantById(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
-  if (!(await canAccessTenant(req, id, "view"))) {
+  if (!(await canAccessTenant(req, id, "View"))) {
     res.status(404).json({ error: "Tenant not found" });
     return;
   }
@@ -76,7 +76,7 @@ export async function updateTenant(req: Request, res: Response) {
   const id = parseId(req, res);
   if (id === null) return;
 
-  if (!(await canAccessTenant(req, id, "update"))) {
+  if (!(await canAccessTenant(req, id, "Update"))) {
     res.status(404).json({ error: "Tenant not found" });
     return;
   }

@@ -10,22 +10,13 @@ const credentialSelect = {
   id: true,
   tenantId: true,
   name: true,
-  username: true,
   email: true,
-  phone: true,
   avatarUrl: true,
-  jobTitle: true,
-  employeeCode: true,
   passwordHash: true,
   status: true,
   isActive: true,
-  isVerified: true,
-  emailVerifiedAt: true,
-  phoneVerifiedAt: true,
   lastLoginAt: true,
   lastLoginIp: true,
-  timezone: true,
-  locale: true,
   createdAt: true,
   updatedAt: true,
   tenant: { select: { isPlatform: true } },
@@ -35,14 +26,14 @@ function signToken(payload: object, secret: string, expiresIn: string): string {
   return jwt.sign(payload, secret, { expiresIn } as SignOptions);
 }
 
-function signAccessToken(user: { id: bigint; tenantId: bigint; username: string }): {
+function signAccessToken(user: { id: bigint; tenantId: bigint; email: string }): {
   token: string;
   expiresIn: number;
 } {
   const claims: AccessTokenClaims = {
     sub: user.id.toString(),
     tenantId: user.tenantId.toString(),
-    username: user.username,
+    email: user.email,
     type: "access",
   };
   const token = signToken(claims, env.JWT_ACCESS_SECRET, env.JWT_ACCESS_EXPIRES_IN);
@@ -60,7 +51,7 @@ function signRefreshToken(user: { id: bigint; tenantId: bigint }): string {
   return signToken(claims, env.JWT_REFRESH_SECRET, env.JWT_REFRESH_EXPIRES_IN);
 }
 
-function issueTokens(user: { id: bigint; tenantId: bigint; username: string }): AuthTokens {
+function issueTokens(user: { id: bigint; tenantId: bigint; email: string }): AuthTokens {
   const { token: accessToken, expiresIn } = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
   return { accessToken, refreshToken, tokenType: "Bearer", expiresIn };
@@ -71,18 +62,13 @@ export async function login(
   ip: string | null,
 ): Promise<{ tokens: AuthTokens; user: SessionUserResponse } | null> {
   const tenant = await prisma.tenant.findFirst({
-    where: { slug: input.tenantSlug, deletedAt: null, isActive: true },
+    where: { domain: input.tenantDomain, deletedAt: null, isActive: true },
     select: { id: true },
   });
   if (!tenant) return null;
 
-  const email = input.identifier.toLowerCase();
   const user = await prisma.user.findFirst({
-    where: {
-      tenantId: tenant.id,
-      deletedAt: null,
-      OR: [{ username: input.identifier }, { email }],
-    },
+    where: { tenantId: tenant.id, deletedAt: null, email: input.email },
     select: credentialSelect,
   });
   if (!user || !user.isActive || !user.passwordHash) return null;
@@ -106,10 +92,8 @@ export async function register(
 ): Promise<{ tokens: AuthTokens; user: SessionUserResponse }> {
   const { tenant: _tenant, user } = await provisionTenant({
     tenantName: input.tenantName,
-    tenantSlug: input.tenantSlug,
     tenantDomain: input.tenantDomain,
     adminName: input.adminName,
-    adminUsername: input.adminUsername,
     adminEmailLocalPart: input.adminEmailLocalPart,
     adminPassword: input.adminPassword,
   });
@@ -143,7 +127,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
 
   const user = await prisma.user.findFirst({
     where: { id: BigInt(claims.sub), tenantId: BigInt(claims.tenantId), deletedAt: null, isActive: true },
-    select: { id: true, tenantId: true, username: true },
+    select: { id: true, tenantId: true, email: true },
   });
   if (!user) return null;
 

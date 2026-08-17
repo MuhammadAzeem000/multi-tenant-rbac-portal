@@ -77,8 +77,8 @@ describe("action.service", () => {
 });
 
 describe("action.controller", () => {
-  it("createAction responds 400 when code is missing", async () => {
-    const req = { body: { name: "Read" } } as unknown as Request;
+  it("createAction responds 400 when name is missing", async () => {
+    const req = { body: {} } as unknown as Request;
     const res = mockRes();
 
     await actionController.createAction(req, res);

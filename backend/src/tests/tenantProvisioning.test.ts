@@ -6,8 +6,8 @@ import * as userService from "../services/user.service";
 
 jest.mock("../config/prisma", () => ({
   prisma: {
-    module: { upsert: jest.fn() },
-    action: { upsert: jest.fn() },
+    module: { findFirst: jest.fn(), create: jest.fn() },
+    action: { findFirst: jest.fn(), create: jest.fn() },
     permission: { create: jest.fn() },
     role: { create: jest.fn() },
     rolePermission: { createMany: jest.fn() },
@@ -20,8 +20,8 @@ jest.mock("../services/tenant.service");
 jest.mock("../services/user.service");
 
 const mockedPrisma = prisma as unknown as {
-  module: { upsert: jest.Mock };
-  action: { upsert: jest.Mock };
+  module: { findFirst: jest.Mock; create: jest.Mock };
+  action: { findFirst: jest.Mock; create: jest.Mock };
   permission: { create: jest.Mock };
   role: { create: jest.Mock };
   rolePermission: { createMany: jest.Mock };
@@ -31,13 +31,15 @@ const mockedPrisma = prisma as unknown as {
 
 describe("provisionTenant", () => {
   it("creates modules, actions, tenant, permissions, an admin role, and the admin user", async () => {
-    mockedPrisma.module.upsert.mockImplementation(({ create }: { create: { code: string } }) =>
-      Promise.resolve({ id: BigInt(`1${create.code.length}`), ...create }),
+    mockedPrisma.module.findFirst.mockResolvedValue(null);
+    mockedPrisma.module.create.mockImplementation(({ data }: { data: { name: string } }) =>
+      Promise.resolve({ id: BigInt(`1${data.name.length}`), ...data }),
     );
-    mockedPrisma.action.upsert.mockImplementation(({ create }: { create: { code: string } }) =>
-      Promise.resolve({ id: BigInt(`2${create.code.length}`), ...create }),
+    mockedPrisma.action.findFirst.mockResolvedValue(null);
+    mockedPrisma.action.create.mockImplementation(({ data }: { data: { name: string } }) =>
+      Promise.resolve({ id: BigInt(`2${data.name.length}`), ...data }),
     );
-    (tenantService.createTenant as jest.Mock).mockResolvedValue({ id: 5n, slug: "acme" });
+    (tenantService.createTenant as jest.Mock).mockResolvedValue({ id: 5n, domain: "acme.test" });
     mockedPrisma.permission.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: 9n, ...data }),
     );
@@ -46,24 +48,21 @@ describe("provisionTenant", () => {
 
     const result = await provisionTenant({
       tenantName: "Acme Corp",
-      tenantSlug: "acme",
       tenantDomain: "acme.test",
       adminName: "Alice Admin",
-      adminUsername: "alice",
       adminEmailLocalPart: "alice",
       adminPassword: "supersecret",
     });
 
     expect(tenantService.createTenant).toHaveBeenCalledWith({
       name: "Acme Corp",
-      slug: "acme",
       domain: "acme.test",
     });
-    expect(mockedPrisma.module.upsert).toHaveBeenCalledTimes(7);
-    expect(mockedPrisma.action.upsert).toHaveBeenCalledTimes(4);
+    expect(mockedPrisma.module.create).toHaveBeenCalledTimes(7);
+    expect(mockedPrisma.action.create).toHaveBeenCalledTimes(4);
     expect(mockedPrisma.permission.create).toHaveBeenCalledTimes(28);
     expect(mockedPrisma.role.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ tenantId: 5n, code: "admin" }) }),
+      expect.objectContaining({ data: expect.objectContaining({ tenantId: 5n, name: "Administrator" }) }),
     );
     expect(mockedPrisma.rolePermission.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -73,13 +72,12 @@ describe("provisionTenant", () => {
     expect(userService.createUser).toHaveBeenCalledWith({
       tenantId: 5n,
       name: "Alice Admin",
-      username: "alice",
       emailLocalPart: "alice",
       password: "supersecret",
     });
     expect(mockedPrisma.userRole.create).toHaveBeenCalledWith({
       data: { tenantId: 5n, userId: 3n, roleId: 7n },
     });
-    expect(result).toEqual({ tenant: { id: 5n, slug: "acme" }, user: { id: 3n } });
+    expect(result).toEqual({ tenant: { id: 5n, domain: "acme.test" }, user: { id: 3n } });
   });
 });

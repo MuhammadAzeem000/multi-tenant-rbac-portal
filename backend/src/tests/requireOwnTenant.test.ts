@@ -12,7 +12,7 @@ function mockRes() {
 describe("requireOwnTenant", () => {
   it("responds 400 for a non-numeric id", async () => {
     const lookup = jest.fn();
-    const req = { params: { id: "abc" }, auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { params: { id: "abc" }, auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 
@@ -25,7 +25,7 @@ describe("requireOwnTenant", () => {
 
   it("responds 404 when the record doesn't exist", async () => {
     const lookup = jest.fn().mockResolvedValue(null);
-    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 
@@ -37,7 +37,7 @@ describe("requireOwnTenant", () => {
 
   it("responds 404 when the record belongs to a different tenant", async () => {
     const lookup = jest.fn().mockResolvedValue(9n);
-    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 
@@ -49,7 +49,7 @@ describe("requireOwnTenant", () => {
 
   it("calls next() when the record belongs to the caller's own tenant", async () => {
     const lookup = jest.fn().mockResolvedValue(5n);
-    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { params: { id: "1" }, auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 

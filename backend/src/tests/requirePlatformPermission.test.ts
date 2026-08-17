@@ -22,7 +22,7 @@ function mockRes() {
 describe("requirePlatformPermission", () => {
   it("responds 403 when the caller isn't on the platform tenant", async () => {
     mockedService.isPlatformTenant.mockResolvedValue(false);
-    const req = { auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 
@@ -35,7 +35,7 @@ describe("requirePlatformPermission", () => {
   it("responds 403 when the caller lacks the specific permission", async () => {
     mockedService.isPlatformTenant.mockResolvedValue(true);
     mockedService.userHasPermission.mockResolvedValue(false);
-    const req = { auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 
@@ -48,7 +48,7 @@ describe("requirePlatformPermission", () => {
   it("calls next() when the caller is a platform member with the permission", async () => {
     mockedService.isPlatformTenant.mockResolvedValue(true);
     mockedService.userHasPermission.mockResolvedValue(true);
-    const req = { auth: { userId: 1n, tenantId: 5n, username: "alice" } } as unknown as Request;
+    const req = { auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
 

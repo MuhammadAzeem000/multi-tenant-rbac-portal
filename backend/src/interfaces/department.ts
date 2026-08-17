@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bigIntId, optionalUniqueCode } from "./common";
+import { bigIntId } from "./common";
 import { paginationQuerySchema } from "./pagination";
 
 export const departmentListQuerySchema = paginationQuerySchema.extend({
@@ -12,7 +12,6 @@ export type DepartmentListQuery = z.infer<typeof departmentListQuerySchema>;
 export const createDepartmentSchema = z.object({
   tenantId: bigIntId,
   name: z.string().trim().min(1).max(150),
-  code: optionalUniqueCode(50),
   description: z.string().trim().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -29,7 +28,6 @@ export interface DepartmentResponse {
   id: bigint;
   tenantId: bigint;
   name: string;
-  code: string | null;
   description: string | null;
   status: string;
   isActive: boolean;

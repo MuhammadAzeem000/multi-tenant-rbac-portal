@@ -6,10 +6,10 @@ import { asyncHandler } from "../utils";
 
 export const tenantRouter = Router();
 
-const requireTenantView = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "view");
-const requireTenantCreate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "create");
-const requireTenantUpdate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "update");
-const requireTenantDelete = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "delete");
+const requireTenantView = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "View");
+const requireTenantCreate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Create");
+const requireTenantUpdate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Update");
+const requireTenantDelete = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Delete");
 
 // Listing/creating/deleting spans every tenant, so it's platform-permission only.
 tenantRouter.get("/", requireTenantView, asyncHandler(tenantController.getTenants));

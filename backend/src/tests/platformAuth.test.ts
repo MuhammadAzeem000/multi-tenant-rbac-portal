@@ -61,7 +61,7 @@ describe("isPlatformTenant", () => {
 describe("userHasPermission", () => {
   it("returns true when the user holds a role granting the permission", async () => {
     mockedPrisma.userRole.count.mockResolvedValue(1);
-    expect(await platformAuthService.userHasPermission(9n, "platform_tenants", "delete")).toBe(true);
+    expect(await platformAuthService.userHasPermission(9n, "Tenants", "Delete")).toBe(true);
     expect(mockedPrisma.userRole.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -70,8 +70,8 @@ describe("userHasPermission", () => {
             rolePermissions: {
               some: {
                 permission: expect.objectContaining({
-                  module: { code: "platform_tenants" },
-                  action: { code: "delete" },
+                  module: { name: "Tenants" },
+                  action: { name: "Delete" },
                 }),
               },
             },
@@ -83,6 +83,6 @@ describe("userHasPermission", () => {
 
   it("returns false when no role grants the permission", async () => {
     mockedPrisma.userRole.count.mockResolvedValue(0);
-    expect(await platformAuthService.userHasPermission(9n, "platform_tenants", "delete")).toBe(false);
+    expect(await platformAuthService.userHasPermission(9n, "Tenants", "Delete")).toBe(false);
   });
 });

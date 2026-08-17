@@ -6,7 +6,7 @@ import { AccessTokenClaims } from "../interfaces/auth";
 export interface AuthContext {
   userId: bigint;
   tenantId: bigint;
-  username: string;
+  email: string;
 }
 
 declare global {
@@ -35,7 +35,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     req.auth = {
       userId: BigInt(claims.sub),
       tenantId: BigInt(claims.tenantId),
-      username: claims.username,
+      email: claims.email,
     };
     next();
   } catch {

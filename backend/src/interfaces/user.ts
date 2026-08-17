@@ -20,21 +20,14 @@ export const emailLocalPartSchema = z
 export const createUserSchema = z.object({
   tenantId: bigIntId,
   name: z.string().trim().min(1).max(150),
-  username: z.string().trim().min(1).max(100),
   // The domain half of the email is always the tenant's domain — never client-supplied.
   emailLocalPart: emailLocalPartSchema,
-  phone: z.string().trim().max(50).optional(),
   password: z.string().min(8).max(255),
-  jobTitle: z.string().trim().max(150).optional(),
-  employeeCode: z.string().trim().max(100).optional(),
-  timezone: z.string().trim().max(100).optional(),
-  locale: z.string().trim().max(20).optional(),
 });
 
 export const updateUserSchema = createUserSchema.omit({ tenantId: true }).partial().extend({
   status: z.string().trim().max(30).optional(),
   isActive: z.boolean().optional(),
-  isVerified: z.boolean().optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -44,21 +37,12 @@ export interface UserResponse {
   id: bigint;
   tenantId: bigint;
   name: string;
-  username: string;
   email: string;
-  phone: string | null;
   avatarUrl: string | null;
-  jobTitle: string | null;
-  employeeCode: string | null;
   status: string;
   isActive: boolean;
-  isVerified: boolean;
-  emailVerifiedAt: Date | null;
-  phoneVerifiedAt: Date | null;
   lastLoginAt: Date | null;
   lastLoginIp: string | null;
-  timezone: string | null;
-  locale: string | null;
   createdAt: Date;
   updatedAt: Date | null;
 }

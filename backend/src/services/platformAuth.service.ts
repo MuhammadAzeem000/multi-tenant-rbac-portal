@@ -1,8 +1,8 @@
 import { prisma } from "../config/prisma";
 
 export const PLATFORM_MODULES = {
-  TENANTS: "platform_tenants",
-  AUDIT_LOGS: "platform_audit_logs",
+  TENANTS: "Tenants",
+  AUDIT_LOGS: "Audit Logs",
 } as const;
 
 // The platform tenant is a fixed singleton once bootstrapped — safe to cache
@@ -33,8 +33,8 @@ export async function isPlatformTenant(tenantId: bigint): Promise<boolean> {
 
 export async function userHasPermission(
   userId: bigint,
-  moduleCode: string,
-  actionCode: string,
+  moduleName: string,
+  actionName: string,
 ): Promise<boolean> {
   const count = await prisma.userRole.count({
     where: {
@@ -47,8 +47,8 @@ export async function userHasPermission(
             permission: {
               isActive: true,
               deletedAt: null,
-              module: { code: moduleCode },
-              action: { code: actionCode },
+              module: { name: moduleName },
+              action: { name: actionName },
             },
           },
         },

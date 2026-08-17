@@ -1,20 +1,20 @@
 /**
- * Idempotent script that provisions the Platform tenant: its two
- * platform-only modules (Tenant Management, Audit Logs), the permissions for
- * them, a "Platform Administrator" role holding all of them, and the first
- * platform admin user assigned to that role.
+ * Idempotent script that provisions the Platform tenant: the global
+ * module/action taxonomy, the permissions for every module x action, a
+ * "Platform Administrator" role holding all of them, and the first platform
+ * admin user assigned to that role.
  *
  * Safe to run more than once against the same database — every step
  * find-or-creates rather than assuming a clean slate, so re-running never
  * produces duplicate tenants, roles, permissions, or users. Re-running with
- * the same admin username after it already exists simply skips user
- * creation and reports the rest as already in place.
+ * the same admin email after it already exists simply skips user creation
+ * and reports the rest as already in place.
  *
  *   npx tsx scripts/bootstrap-platform.ts \
- *     --name "Alice Admin" --username alice --email alice --password "Secret123!"
+ *     --name "Alice Admin" --email alice --password "Secret123!"
  *
- * Optional overrides: --tenant-name, --tenant-slug, --tenant-domain
- * (default to "Platform" / "platform" / "platform.internal").
+ * Optional overrides: --tenant-name, --tenant-domain (default to "Platform" /
+ * "platform.internal").
  *
  * Adding a *second* platform admin later needs no script — create the user
  * under the Platform tenant and assign a role via the normal Users/Roles UI,
@@ -26,21 +26,22 @@ import * as tenantModuleService from "../src/services/tenantModule.service";
 import * as userService from "../src/services/user.service";
 
 const PLATFORM_ACTIONS = [
-  { name: "View", code: "view", sortOrder: 0 },
-  { name: "Create", code: "create", sortOrder: 1 },
-  { name: "Update", code: "update", sortOrder: 2 },
-  { name: "Delete", code: "delete", sortOrder: 3 },
+  { name: "View", sortOrder: 0 },
+  { name: "Create", sortOrder: 1 },
+  { name: "Update", sortOrder: 2 },
+  { name: "Delete", sortOrder: 3 },
 ] as const;
 
 const PLATFORM_MODULES = [
-  { name: "Dashboard", code: "platform_dashboard", sortOrder: 0, },
-  { name: "Tenants", code: "platform_tenants", sortOrder: 1 },
-  { name: "Users", code: "platform_users", sortOrder: 2 },
-  { name: "Departments", code: "platform_departments", sortOrder: 3 },
-  { name: "Roles", code: "platform_roles", sortOrder: 4 },
-  { name: "Modules", code: "platform_modules", sortOrder: 5 },
-  { name: "Actions", code: "platform_actions", sortOrder: 6 },
-  { name: "Permissions", code: "platform_permissions", sortOrder: 7 },
+  { name: "Dashboard", sortOrder: 0 },
+  { name: "Tenants", sortOrder: 1 },
+  { name: "Users", sortOrder: 2 },
+  { name: "Departments", sortOrder: 3 },
+  { name: "Roles", sortOrder: 4 },
+  { name: "Modules", sortOrder: 5 },
+  { name: "Actions", sortOrder: 6 },
+  { name: "Permissions", sortOrder: 7 },
+  { name: "Audit Logs", sortOrder: 8 },
 ] as const;
 
 function parseArgs(): Record<string, string> {
@@ -58,84 +59,74 @@ function parseArgs(): Record<string, string> {
   return args;
 }
 
+// Modules/Actions are global and shared across tenants — Module/Action have no
+// unique key besides id, so re-runs find-or-create by name instead of upserting.
+async function findOrCreateAction(input: { name: string; sortOrder: number }) {
+  const existing = await prisma.action.findFirst({ where: { name: input.name, deletedAt: null } });
+  if (existing) return existing;
+  return prisma.action.create({ data: input });
+}
+
+async function findOrCreateModule(input: { name: string; sortOrder: number }) {
+  const existing = await prisma.module.findFirst({ where: { name: input.name, deletedAt: null } });
+  if (existing) return existing;
+  return prisma.module.create({ data: { ...input, isSystem: true } });
+}
+
 async function main() {
   const args = parseArgs();
   const adminName = args.name;
-  const adminUsername = args.username;
   const adminEmailLocalPart = args.email;
   const adminPassword = args.password;
   const tenantName = args["tenant-name"] ?? "Platform";
-  const tenantSlug = args["tenant-slug"] ?? "platform";
   const tenantDomain = args["tenant-domain"] ?? "platform.internal";
 
-  if (!adminName || !adminUsername || !adminEmailLocalPart || !adminPassword) {
+  if (!adminName || !adminEmailLocalPart || !adminPassword) {
     console.error(
-      "Usage: npx tsx scripts/bootstrap-platform.ts --name <name> --username <username> --email <local-part> --password <password>",
+      "Usage: npx tsx scripts/bootstrap-platform.ts --name <name> --email <local-part> --password <password>",
     );
     process.exitCode = 1;
     return;
   }
 
-  // Global taxonomy — safe to upsert by code regardless of whether this is a
-  // fresh install or a re-run.
-  const actions = await Promise.all(
-    PLATFORM_ACTIONS.map((action) =>
-      prisma.action.upsert({ where: { code: action.code }, update: {}, create: { ...action, isSystem: true } }),
-    ),
-  );
-  const modules = await Promise.all(
-    PLATFORM_MODULES.map((module) =>
-      prisma.module.upsert({
-        where: { code: module.code },
-        update: { name: module.name, sortOrder: module.sortOrder, isPlatformOnly: true },
-        create: { ...module, isSystem: true, isPlatformOnly: true },
-      }),
-    ),
-  );
+  // Global taxonomy — safe to run more than once regardless of whether this
+  // is a fresh install or a re-run.
+  const actions = await Promise.all(PLATFORM_ACTIONS.map(findOrCreateAction));
+  const modules = await Promise.all(PLATFORM_MODULES.map(findOrCreateModule));
 
-  let tenant = await prisma.tenant.findFirst({ where: { isPlatform: true }, select: { id: true, slug: true } });
+  let tenant = await prisma.tenant.findFirst({ where: { isPlatform: true }, select: { id: true, domain: true } });
   if (tenant) {
-    console.log(`Platform tenant already exists (id ${tenant.id}, slug "${tenant.slug}") — reusing it.`);
+    console.log(`Platform tenant already exists (id ${tenant.id}, domain "${tenant.domain}") — reusing it.`);
   } else {
-    const created = await tenantService.createTenant({ name: tenantName, slug: tenantSlug, domain: tenantDomain });
+    const created = await tenantService.createTenant({ name: tenantName, domain: tenantDomain });
     await prisma.tenant.update({ where: { id: created.id }, data: { isPlatform: true } });
-    tenant = { id: created.id, slug: created.slug };
-    console.log(`Created platform tenant (id ${tenant.id}, slug "${tenant.slug}").`);
+    tenant = { id: created.id, domain: tenantDomain };
+    console.log(`Created platform tenant (id ${tenant.id}, domain "${tenant.domain}").`);
   }
 
-  // Permissions are unique per (tenantId, code) — upsert so re-running never
-  // hits a duplicate-key error.
+  // Permissions are unique per (tenantId, moduleId, actionId) — upsert so
+  // re-running never hits a duplicate-key error.
   const permissions = await Promise.all(
     modules.flatMap((module) =>
       actions.map((action) => {
-        const code = `${module.code}.${action.code}`;
         const name = `${action.name} ${module.name}`;
         return prisma.permission.upsert({
-          where: { tenantId_code: { tenantId: tenant!.id, code } },
+          where: { tenantId_moduleId_actionId: { tenantId: tenant!.id, moduleId: module.id, actionId: action.id } },
           update: { name },
-          create: {
-            tenantId: tenant!.id,
-            moduleId: module.id,
-            actionId: action.id,
-            name,
-            code,
-            isSystem: true,
-          },
+          create: { tenantId: tenant!.id, moduleId: module.id, actionId: action.id, name },
         });
       }),
     ),
   );
 
   const role = await prisma.role.upsert({
-    where: { tenantId_code: { tenantId: tenant.id, code: "platform_admin" } },
+    where: { tenantId_name: { tenantId: tenant.id, name: "Platform Administrator" } },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Platform Administrator",
-      code: "platform_admin",
       description: "Full access to every platform module and action.",
       isSystem: true,
-      priority: 1000,
     },
   });
 
@@ -148,44 +139,30 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // The platform tenant's own module entitlements — its 2 platform-only
-  // modules, granted directly (grantStandardModuleAccess deliberately
-  // excludes platform-only modules, so it doesn't cover this case).
-  await Promise.all(
-    modules.map((module) =>
-      prisma.tenantModule.upsert({
-        where: { tenantId_moduleId: { tenantId: tenant!.id, moduleId: module.id } },
-        update: {},
-        create: { tenantId: tenant!.id, moduleId: module.id, isEnabled: true },
-      }),
-    ),
-  );
-  // Standard modules too, so platform staff can manage their own users/roles/etc.
+  // Every module, so platform staff can manage tenants/users/roles/etc. and
+  // review audit logs. Safe to call on every run — skipDuplicates keeps it a
+  // no-op once granted, and it also tops up any module added since the last run.
   await tenantModuleService.grantStandardModuleAccess(tenant.id);
 
+  const email = `${adminEmailLocalPart}@${tenant.domain}`;
   const existingUser = await prisma.user.findFirst({
-    where: { tenantId: tenant.id, username: adminUsername, deletedAt: null },
+    where: { tenantId: tenant.id, email, deletedAt: null },
     select: { id: true },
   });
 
   let userId: bigint;
   if (existingUser) {
-    console.log(`Admin user "${adminUsername}" already exists (id ${existingUser.id}) — skipping user creation.`);
+    console.log(`Admin user "${email}" already exists (id ${existingUser.id}) — skipping user creation.`);
     userId = existingUser.id;
   } else {
     const user = await userService.createUser({
       tenantId: tenant.id,
       name: adminName,
-      username: adminUsername,
       emailLocalPart: adminEmailLocalPart,
       password: adminPassword,
     });
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true, emailVerifiedAt: new Date() },
-    });
     userId = user.id;
-    console.log(`Created admin user "${adminUsername}" (id ${userId}).`);
+    console.log(`Created admin user "${email}" (id ${userId}).`);
   }
 
   await prisma.userRole.upsert({
@@ -195,9 +172,8 @@ async function main() {
   });
 
   console.log("Platform tenant bootstrap complete.");
-  console.log(`  Tenant slug: ${tenant.slug}`);
-  console.log(`  Admin username: ${adminUsername}`);
-  console.log(`  Log in with tenantSlug="${tenant.slug}", identifier="${adminUsername}".`);
+  console.log(`  Tenant domain: ${tenant.domain}`);
+  console.log(`  Log in with tenantDomain="${tenant.domain}", email="${email}".`);
 }
 
 main()

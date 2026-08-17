@@ -7,7 +7,6 @@ const departmentSelect = {
   id: true,
   tenantId: true,
   name: true,
-  code: true,
   description: true,
   status: true,
   isActive: true,
@@ -28,10 +27,7 @@ export async function getDepartments(params: {
     ...(params.tenantId !== undefined && { tenantId: params.tenantId }),
     ...(params.isActive !== undefined && { isActive: params.isActive }),
     ...(params.search && {
-      OR: [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { code: { contains: params.search, mode: "insensitive" } },
-      ],
+      OR: [{ name: { contains: params.search, mode: "insensitive" } }],
     }),
   };
   const { skip, take } = toSkipTake(params.page, params.pageSize);

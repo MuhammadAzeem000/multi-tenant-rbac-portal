@@ -3,8 +3,8 @@ import { domainSchema } from "./tenant";
 import { emailLocalPartSchema, SessionUserResponse } from "./user";
 
 export const loginSchema = z.object({
-  tenantSlug: z.string().trim().min(1).max(100),
-  identifier: z.string().trim().min(1).max(255),
+  tenantDomain: domainSchema,
+  email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(1),
 });
 
@@ -14,15 +14,8 @@ export const refreshSchema = z.object({
 
 export const registerSchema = z.object({
   tenantName: z.string().trim().min(1, "Organization name is required").max(150),
-  tenantSlug: z
-    .string()
-    .trim()
-    .min(1, "Organization slug is required")
-    .max(100)
-    .regex(/^[a-z0-9-]+$/, { message: "Lowercase letters, numbers, and hyphens only" }),
   tenantDomain: domainSchema,
   adminName: z.string().trim().min(1, "Name is required").max(150),
-  adminUsername: z.string().trim().min(1, "Username is required").max(100),
   adminEmailLocalPart: emailLocalPartSchema,
   adminPassword: z.string().min(8).max(255),
 });
@@ -34,7 +27,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export interface AccessTokenClaims {
   sub: string;
   tenantId: string;
-  username: string;
+  email: string;
   type: "access";
 }
 

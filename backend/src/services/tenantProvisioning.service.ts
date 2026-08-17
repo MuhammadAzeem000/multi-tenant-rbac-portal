@@ -1,32 +1,30 @@
 import { prisma } from "../config/prisma";
-import * as tenantService from "../services/tenant.service";
-import * as userService from "../services/user.service";
+import * as tenantService from "./tenant.service";
+import * as userService from "./user.service";
 import { UserResponse } from "../interfaces/user";
 import { TenantResponse } from "../interfaces/tenant";
 
 const MODULES = [
-  { name: "Tenants", code: "tenants", sortOrder: 0 },
-  { name: "Users", code: "users", sortOrder: 1 },
-  { name: "Departments", code: "departments", sortOrder: 2 },
-  { name: "Roles", code: "roles", sortOrder: 3 },
-  { name: "Modules", code: "modules", sortOrder: 4 },
-  { name: "Actions", code: "actions", sortOrder: 5 },
-  { name: "Permissions", code: "permissions", sortOrder: 6 },
+  { name: "Tenants", sortOrder: 0 },
+  { name: "Users", sortOrder: 1 },
+  { name: "Departments", sortOrder: 2 },
+  { name: "Roles", sortOrder: 3 },
+  { name: "Modules", sortOrder: 4 },
+  { name: "Actions", sortOrder: 5 },
+  { name: "Permissions", sortOrder: 6 },
 ] as const;
 
 const ACTIONS = [
-  { name: "View", code: "view", sortOrder: 0 },
-  { name: "Create", code: "create", sortOrder: 1 },
-  { name: "Update", code: "update", sortOrder: 2 },
-  { name: "Delete", code: "delete", sortOrder: 3 },
+  { name: "View", sortOrder: 0 },
+  { name: "Create", sortOrder: 1 },
+  { name: "Update", sortOrder: 2 },
+  { name: "Delete", sortOrder: 3 },
 ] as const;
 
 export interface ProvisionTenantInput {
   tenantName: string;
-  tenantSlug: string;
   tenantDomain: string;
   adminName: string;
-  adminUsername: string;
   adminEmailLocalPart: string;
   adminPassword: string;
 }
@@ -36,36 +34,30 @@ export interface ProvisionTenantResult {
   user: UserResponse;
 }
 
+// Modules/Actions are global and shared across tenants — Module/Action have no
+// unique key besides id, so re-runs find-or-create by name instead of upserting.
+async function findOrCreateModule(input: { name: string; sortOrder: number }) {
+  const existing = await prisma.module.findFirst({ where: { name: input.name, deletedAt: null } });
+  if (existing) return existing;
+  return prisma.module.create({ data: { ...input, isSystem: true } });
+}
+
+async function findOrCreateAction(input: { name: string; sortOrder: number }) {
+  const existing = await prisma.action.findFirst({ where: { name: input.name, deletedAt: null } });
+  if (existing) return existing;
+  return prisma.action.create({ data: input });
+}
+
 /**
  * Creates a brand-new tenant with a fully-provisioned "Administrator" role
  * (every module x action permission) and its first user assigned to that role.
- * Modules/Actions are global and shared across tenants, so they're upserted
- * by code rather than recreated for every tenant.
  */
 export async function provisionTenant(input: ProvisionTenantInput): Promise<ProvisionTenantResult> {
-  const modules = await Promise.all(
-    MODULES.map((module) =>
-      prisma.module.upsert({
-        where: { code: module.code },
-        update: {},
-        create: { ...module, isSystem: true },
-      }),
-    ),
-  );
-
-  const actions = await Promise.all(
-    ACTIONS.map((action) =>
-      prisma.action.upsert({
-        where: { code: action.code },
-        update: {},
-        create: { ...action, isSystem: true },
-      }),
-    ),
-  );
+  const modules = await Promise.all(MODULES.map(findOrCreateModule));
+  const actions = await Promise.all(ACTIONS.map(findOrCreateAction));
 
   const tenant = await tenantService.createTenant({
     name: input.tenantName,
-    slug: input.tenantSlug,
     domain: input.tenantDomain,
   });
 
@@ -78,8 +70,6 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
             moduleId: module.id,
             actionId: action.id,
             name: `${action.name} ${module.name}`,
-            code: `${module.code}.${action.code}`,
-            isSystem: true,
           },
         }),
       ),
@@ -90,10 +80,8 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
     data: {
       tenantId: tenant.id,
       name: "Administrator",
-      code: "admin",
       description: "Full access to every module and action.",
       isSystem: true,
-      priority: 1000,
     },
   });
 
@@ -108,14 +96,8 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
   const user = await userService.createUser({
     tenantId: tenant.id,
     name: input.adminName,
-    username: input.adminUsername,
     emailLocalPart: input.adminEmailLocalPart,
     password: input.adminPassword,
-  });
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { isVerified: true, emailVerifiedAt: new Date() },
   });
 
   await prisma.userRole.create({

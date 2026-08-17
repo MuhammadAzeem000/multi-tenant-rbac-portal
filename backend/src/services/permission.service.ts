@@ -9,9 +9,7 @@ const permissionSelect = {
   moduleId: true,
   actionId: true,
   name: true,
-  code: true,
   description: true,
-  isSystem: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -33,10 +31,7 @@ export async function getPermissions(params: {
     ...(params.moduleId !== undefined && { moduleId: params.moduleId }),
     ...(params.actionId !== undefined && { actionId: params.actionId }),
     ...(params.search && {
-      OR: [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { code: { contains: params.search, mode: "insensitive" } },
-      ],
+      OR: [{ name: { contains: params.search, mode: "insensitive" } }],
     }),
   };
   const { skip, take } = toSkipTake(params.page, params.pageSize);

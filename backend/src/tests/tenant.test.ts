@@ -89,7 +89,7 @@ describe("tenant.service", () => {
     expect(result.pagination.totalPages).toBe(3);
   });
 
-  it("getTenants searches across name/slug/code/email and filters by isActive", async () => {
+  it("getTenants searches across name/domain and filters by isActive", async () => {
     mockedPrisma.tenant.findMany.mockResolvedValue([]);
     mockedPrisma.tenant.count.mockResolvedValue(0);
 
@@ -102,10 +102,7 @@ describe("tenant.service", () => {
           isActive: true,
           OR: [
             { name: { contains: "acme", mode: "insensitive" } },
-            { slug: { contains: "acme", mode: "insensitive" } },
-            { code: { contains: "acme", mode: "insensitive" } },
             { domain: { contains: "acme", mode: "insensitive" } },
-            { email: { contains: "acme", mode: "insensitive" } },
           ],
         },
       }),
@@ -117,31 +114,18 @@ describe("tenant.service", () => {
     expect(await tenantService.getTenantById(1n)).toBeNull();
   });
 
-  it("createTenant sets parentTenantId to null when no platform tenant exists yet", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValue(null);
-    mockedPrisma.tenant.create.mockResolvedValue({ id: 11n });
-
-    await tenantService.createTenant({ name: "Platform", slug: "platform", domain: "platform.internal" });
-
-    expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ parentTenantId: null }) }),
-    );
-    expect(mockedPrisma.module.findMany).not.toHaveBeenCalled();
-  });
-
-  it("createTenant sets parentTenantId to the platform tenant and grants standard module access", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValue({ id: 11n });
+  it("createTenant grants standard module access to every newly created tenant", async () => {
     mockedPrisma.tenant.create.mockResolvedValue({ id: 5n });
     mockedPrisma.module.findMany.mockResolvedValue([{ id: 1n }, { id: 2n }]);
     mockedPrisma.tenantModule.createMany.mockResolvedValue({ count: 2 });
 
-    await tenantService.createTenant({ name: "Acme", slug: "acme", domain: "acme.test" });
+    await tenantService.createTenant({ name: "Acme", domain: "acme.test" });
 
     expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ parentTenantId: 11n }) }),
+      expect.objectContaining({ data: expect.objectContaining({ name: "Acme", domain: "acme.test" }) }),
     );
     expect(mockedPrisma.module.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ isPlatformOnly: false }) }),
+      expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
     );
     expect(mockedPrisma.tenantModule.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,7 +151,7 @@ describe("tenant.service", () => {
 });
 
 describe("tenant.controller", () => {
-  it("createTenant responds 400 when slug is missing", async () => {
+  it("createTenant responds 400 when domain is missing", async () => {
     const req = { body: { name: "Acme" } } as unknown as Request;
     const res = mockRes();
 
@@ -177,53 +161,26 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
   });
 
-  it("createTenant normalizes an empty-string code to undefined instead of storing it literally", async () => {
+  it("createTenant creates the tenant and records an audit log entry", async () => {
     mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
     const req = {
-      body: { name: "Acme", slug: "acme", domain: "acme.com", code: "" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      body: { name: "Acme", domain: "acme.com" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();
 
     await tenantController.createTenant(req, res);
 
-    const dataArg = mockedPrisma.tenant.create.mock.calls[0][0].data;
-    expect(dataArg.code).toBeUndefined();
     expect(res.status).toHaveBeenCalledWith(201);
     expect(mockedPrisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "tenant.create" }) }),
     );
   });
 
-  it("createTenant accepts blank email/websiteUrl/logoUrl instead of rejecting them as invalid format", async () => {
-    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+  it("createTenant rejects a malformed domain", async () => {
     const req = {
-      body: {
-        name: "Acme",
-        slug: "acme",
-        domain: "acme.com",
-        email: "",
-        websiteUrl: "",
-        logoUrl: "",
-      },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
-    } as unknown as Request;
-    const res = mockRes();
-
-    await tenantController.createTenant(req, res);
-
-    expect(res.status).not.toHaveBeenCalledWith(400);
-    expect(res.status).toHaveBeenCalledWith(201);
-    const dataArg = mockedPrisma.tenant.create.mock.calls[0][0].data;
-    expect(dataArg.email).toBeUndefined();
-    expect(dataArg.websiteUrl).toBeUndefined();
-    expect(dataArg.logoUrl).toBeUndefined();
-  });
-
-  it("createTenant still rejects a genuinely malformed email/url", async () => {
-    const req = {
-      body: { name: "Acme", slug: "acme", domain: "acme.com", email: "not-an-email" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      body: { name: "Acme", domain: "not a domain" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -237,7 +194,7 @@ describe("tenant.controller", () => {
     mockedPrisma.tenant.findFirst.mockResolvedValue(null);
     const req = {
       params: { id: "1" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -249,7 +206,7 @@ describe("tenant.controller", () => {
   it("getTenantById responds 404 for a different tenant when the caller isn't a platform admin", async () => {
     const req = {
       params: { id: "2" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -265,7 +222,7 @@ describe("tenant.controller", () => {
   it("getTenantById proceeds for a different tenant when the caller is a platform admin with view permission", async () => {
     const req = {
       params: { id: "2" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -306,7 +263,7 @@ describe("tenant.controller", () => {
     const req = {
       params: { id: "1" },
       body: { isActive: false },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -321,7 +278,7 @@ describe("tenant.controller", () => {
     const req = {
       params: { id: "2" },
       body: { name: "New name" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -336,7 +293,7 @@ describe("tenant.controller", () => {
     const req = {
       params: { id: "1" },
       body: { name: "New name" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -350,7 +307,7 @@ describe("tenant.controller", () => {
     const req = {
       params: { id: "1" },
       body: { isActive: false },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -365,7 +322,7 @@ describe("tenant.controller", () => {
     const req = {
       params: { id: "2" },
       body: { isActive: false },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -383,7 +340,7 @@ describe("tenant.controller", () => {
   it("deleteTenant responds 409 when deleting the tenant you're logged into", async () => {
     const req = {
       params: { id: "1" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -398,7 +355,7 @@ describe("tenant.controller", () => {
     mockedPrisma.tenant.update.mockResolvedValue({ id: 2n });
     const req = {
       params: { id: "2" },
-      auth: { userId: 9n, tenantId: 1n, username: "alice" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -416,7 +373,7 @@ describe("tenant.controller", () => {
 
       const req = {
         params: { id: "2" },
-        auth: { userId: 9n, tenantId: 1n, username: "alice" },
+        auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
       } as unknown as Request;
       const res = mockRes();
 

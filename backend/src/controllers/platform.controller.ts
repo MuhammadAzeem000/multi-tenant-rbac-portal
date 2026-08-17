@@ -3,7 +3,6 @@ import { z } from "zod";
 import { setTenantModuleSchema } from "../interfaces/tenantModule";
 import * as auditLogService from "../services/auditLog.service";
 import * as moduleService from "../services/module.service";
-import * as platformAuthService from "../services/platformAuth.service";
 import * as tenantModuleService from "../services/tenantModule.service";
 import * as userService from "../services/user.service";
 import { parseBigIntId, parsePagination } from "../utils";
@@ -53,14 +52,6 @@ export async function setTenantModule(req: Request, res: Response) {
     return;
   }
 
-  if (result.data.isEnabled && module.isPlatformOnly) {
-    const targetIsPlatform = await platformAuthService.isPlatformTenant(tenantId);
-    if (!targetIsPlatform) {
-      res.status(403).json({ error: "Platform-only modules can only be enabled for the platform tenant" });
-      return;
-    }
-  }
-
   const entitlement = await tenantModuleService.setModuleEnabled(
     tenantId,
     moduleId,
@@ -74,7 +65,7 @@ export async function setTenantModule(req: Request, res: Response) {
     targetType: "tenant_module",
     targetId: moduleId,
     tenantId,
-    metadata: { moduleCode: module.code },
+    metadata: { moduleName: module.name },
   });
 
   res.json(entitlement);

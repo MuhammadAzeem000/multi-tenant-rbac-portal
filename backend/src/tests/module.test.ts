@@ -77,8 +77,8 @@ describe("module.service", () => {
 });
 
 describe("module.controller", () => {
-  it("createModule responds 400 when code is missing", async () => {
-    const req = { body: { name: "Assets" } } as unknown as Request;
+  it("createModule responds 400 when name is missing", async () => {
+    const req = { body: {} } as unknown as Request;
     const res = mockRes();
 
     await moduleController.createModule(req, res);

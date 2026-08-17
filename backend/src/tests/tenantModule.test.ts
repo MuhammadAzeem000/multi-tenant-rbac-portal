@@ -21,7 +21,6 @@ describe("tenantModule.service", () => {
         {
           id: 1n,
           name: "Tenant Management",
-          code: "platform_tenants",
           description: null,
           icon: null,
           sortOrder: 0,
@@ -35,7 +34,6 @@ describe("tenantModule.service", () => {
         {
           moduleId: 1n,
           name: "Tenant Management",
-          code: "platform_tenants",
           description: null,
           icon: null,
           sortOrder: 0,
@@ -57,7 +55,6 @@ describe("tenantModule.service", () => {
         {
           id: 2n,
           name: "Users",
-          code: "users",
           description: null,
           icon: null,
           sortOrder: 1,
@@ -93,7 +90,7 @@ describe("tenantModule.service", () => {
         isEnabled: true,
         enabledAt: new Date("2026-01-01"),
         disabledAt: null,
-        module: { name: "Tenant Management", code: "platform_tenants", description: null, icon: null, sortOrder: 0 },
+        module: { name: "Tenant Management", description: null, icon: null, sortOrder: 0 },
       });
 
       await tenantModuleService.setModuleEnabled(5n, 1n, true, 9n);
@@ -114,7 +111,7 @@ describe("tenantModule.service", () => {
         isEnabled: false,
         enabledAt: new Date("2026-01-01"),
         disabledAt: new Date("2026-01-02"),
-        module: { name: "Tenant Management", code: "platform_tenants", description: null, icon: null, sortOrder: 0 },
+        module: { name: "Tenant Management", description: null, icon: null, sortOrder: 0 },
       });
 
       const result = await tenantModuleService.setModuleEnabled(5n, 1n, false, 9n);
@@ -129,14 +126,14 @@ describe("tenantModule.service", () => {
   });
 
   describe("grantStandardModuleAccess", () => {
-    it("only queries non-platform-only modules", async () => {
+    it("queries every active module", async () => {
       mockedPrisma.module.findMany.mockResolvedValue([{ id: 1n }, { id: 2n }]);
       mockedPrisma.tenantModule.createMany.mockResolvedValue({ count: 2 });
 
       await tenantModuleService.grantStandardModuleAccess(5n, 9n);
 
       expect(mockedPrisma.module.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ isPlatformOnly: false }) }),
+        expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
       );
       expect(mockedPrisma.tenantModule.createMany).toHaveBeenCalledWith({
         data: [

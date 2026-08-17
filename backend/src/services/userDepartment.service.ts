@@ -4,15 +4,12 @@ import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/
 const departmentSelect = {
   id: true,
   name: true,
-  code: true,
 } as const;
 
 export async function getDepartmentsForUser(
   userId: bigint,
   params: { page: number; pageSize: number },
-): Promise<
-  PaginatedResult<{ id: bigint; name: string; code: string | null; isPrimary: boolean; assignedAt: Date }>
-> {
+): Promise<PaginatedResult<{ id: bigint; name: string; isPrimary: boolean; assignedAt: Date }>> {
   const where = { userId };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 

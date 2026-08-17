@@ -67,7 +67,7 @@ describe("user.service", () => {
     );
   });
 
-  it("getUsers searches across name/username/email and filters by isActive", async () => {
+  it("getUsers searches across name/email and filters by isActive", async () => {
     mockedPrisma.user.findMany.mockResolvedValue([]);
     mockedPrisma.user.count.mockResolvedValue(0);
 
@@ -80,7 +80,6 @@ describe("user.service", () => {
           isActive: false,
           OR: [
             { name: { contains: "alice", mode: "insensitive" } },
-            { username: { contains: "alice", mode: "insensitive" } },
             { email: { contains: "alice", mode: "insensitive" } },
           ],
         },
@@ -113,7 +112,6 @@ describe("user.service", () => {
     await userService.createUser({
       tenantId: 1n,
       name: "Alice",
-      username: "alice",
       emailLocalPart: "alice",
       password: "supersecret",
     });
@@ -174,7 +172,7 @@ describe("user.controller", () => {
     mockedPrisma.user.count.mockResolvedValue(0);
     const req = {
       query: { tenantId: "999" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -191,8 +189,8 @@ describe("user.controller", () => {
       Promise.resolve({ id: 1n, ...data }),
     );
     const req = {
-      body: { tenantId: "999", name: "Bob", username: "bob", emailLocalPart: "bob", password: "supersecret" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      body: { tenantId: "999", name: "Bob", emailLocalPart: "bob", password: "supersecret" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -236,7 +234,7 @@ describe("user.controller", () => {
     const req = {
       params: { id: "1" },
       body: { isActive: false },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -251,7 +249,7 @@ describe("user.controller", () => {
     const req = {
       params: { id: "1" },
       body: { name: "Alice Updated" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -266,7 +264,7 @@ describe("user.controller", () => {
     const req = {
       params: { id: "2" },
       body: { isActive: false },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -279,7 +277,7 @@ describe("user.controller", () => {
   it("deleteUser responds 409 when deleting your own account", async () => {
     const req = {
       params: { id: "1" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -293,7 +291,7 @@ describe("user.controller", () => {
     mockedPrisma.user.update.mockResolvedValue({ id: 2n });
     const req = {
       params: { id: "2" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 

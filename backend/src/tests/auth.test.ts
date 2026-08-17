@@ -36,7 +36,7 @@ function mockRes() {
   return res;
 }
 
-const loginInput = { tenantSlug: "acme", identifier: "alice", password: "supersecret" };
+const loginInput = { tenantDomain: "acme.test", email: "alice@acme.test", password: "supersecret" };
 
 describe("auth.service login", () => {
   it("returns null when the tenant does not exist", async () => {
@@ -62,7 +62,7 @@ describe("auth.service login", () => {
     mockedPrisma.user.findFirst.mockResolvedValue({
       id: 1n,
       tenantId: 1n,
-      username: "alice",
+      email: "alice@acme.test",
       isActive: true,
       passwordHash: "hashed",
     });
@@ -79,8 +79,7 @@ describe("auth.service login", () => {
     mockedPrisma.user.findFirst.mockResolvedValue({
       id: 1n,
       tenantId: 1n,
-      username: "alice",
-      email: "alice@example.com",
+      email: "alice@acme.test",
       isActive: true,
       passwordHash: "hashed",
       tenant: { isPlatform: false },
@@ -121,7 +120,7 @@ describe("auth.service getSessionUser", () => {
     mockedPrisma.user.findFirst.mockResolvedValue({
       id: 6n,
       tenantId: 11n,
-      username: "platformadmin",
+      email: "platformadmin@platform.internal",
       passwordHash: "hashed",
       tenant: { isPlatform: true },
     });
@@ -137,28 +136,24 @@ describe("auth.service getSessionUser", () => {
 describe("auth.service register", () => {
   const registerInput = {
     tenantName: "Acme Corp",
-    tenantSlug: "acme",
     tenantDomain: "acme.test",
     adminName: "Alice Admin",
-    adminUsername: "alice",
     adminEmailLocalPart: "alice",
     adminPassword: "supersecret",
   };
 
   it("provisions the tenant and issues tokens for the new admin", async () => {
     (provisionTenant as jest.Mock).mockResolvedValue({
-      tenant: { id: 1n, slug: "acme" },
-      user: { id: 2n, tenantId: 1n, username: "alice", email: "alice@acme.test" },
+      tenant: { id: 1n, domain: "acme.test" },
+      user: { id: 2n, tenantId: 1n, email: "alice@acme.test" },
     });
 
     const result = await authService.register(registerInput);
 
     expect(provisionTenant).toHaveBeenCalledWith({
       tenantName: "Acme Corp",
-      tenantSlug: "acme",
       tenantDomain: "acme.test",
       adminName: "Alice Admin",
-      adminUsername: "alice",
       adminEmailLocalPart: "alice",
       adminPassword: "supersecret",
     });
@@ -185,7 +180,7 @@ describe("auth.service refreshAccessToken", () => {
 
   it("issues a fresh access token and echoes the same refresh token", async () => {
     const refreshToken = jwt.sign({ sub: "1", tenantId: "1", type: "refresh" }, env.JWT_REFRESH_SECRET);
-    mockedPrisma.user.findFirst.mockResolvedValue({ id: 1n, tenantId: 1n, username: "alice" });
+    mockedPrisma.user.findFirst.mockResolvedValue({ id: 1n, tenantId: 1n, email: "alice@acme.test" });
 
     const tokens = await authService.refreshAccessToken(refreshToken);
 
@@ -206,7 +201,7 @@ describe("auth.service refreshAccessToken", () => {
 
 describe("auth.controller", () => {
   it("login responds 400 on malformed input", async () => {
-    const req = { body: { tenantSlug: "acme" } } as unknown as Request;
+    const req = { body: { tenantDomain: "acme.test" } } as unknown as Request;
     const res = mockRes();
 
     await authController.login(req, res);
@@ -233,14 +228,12 @@ describe("auth.controller", () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it("register responds 400 for an invalid tenant slug", async () => {
+  it("register responds 400 for an invalid tenant domain", async () => {
     const req = {
       body: {
         tenantName: "Acme Corp",
-        tenantSlug: "Not A Valid Slug!",
-        tenantDomain: "acme.test",
+        tenantDomain: "Not A Valid Domain!",
         adminName: "Alice",
-        adminUsername: "alice",
         adminEmailLocalPart: "alice",
         adminPassword: "supersecret",
       },
@@ -255,16 +248,14 @@ describe("auth.controller", () => {
 
   it("register responds 201 with tokens on success", async () => {
     (provisionTenant as jest.Mock).mockResolvedValue({
-      tenant: { id: 1n, slug: "acme" },
-      user: { id: 2n, tenantId: 1n, username: "alice", email: "alice@acme.test" },
+      tenant: { id: 1n, domain: "acme.test" },
+      user: { id: 2n, tenantId: 1n, email: "alice@acme.test" },
     });
     const req = {
       body: {
         tenantName: "Acme Corp",
-        tenantSlug: "acme",
         tenantDomain: "acme.test",
         adminName: "Alice",
-        adminUsername: "alice",
         adminEmailLocalPart: "alice",
         adminPassword: "supersecret",
       },
@@ -278,7 +269,7 @@ describe("auth.controller", () => {
 
   it("me responds 401 when the user no longer exists", async () => {
     mockedPrisma.user.findFirst.mockResolvedValue(null);
-    const req = { auth: { userId: 1n, tenantId: 1n, username: "alice" } } as unknown as Request;
+    const req = { auth: { userId: 1n, tenantId: 1n, email: "alice@acme.test" } } as unknown as Request;
     const res = mockRes();
 
     await authController.me(req, res);
@@ -290,11 +281,13 @@ describe("auth.controller", () => {
     mockedPrisma.user.findFirst.mockResolvedValue({
       id: 6n,
       tenantId: 11n,
-      username: "platformadmin",
+      email: "platformadmin@platform.internal",
       passwordHash: "hashed",
       tenant: { isPlatform: true },
     });
-    const req = { auth: { userId: 6n, tenantId: 11n, username: "platformadmin" } } as unknown as Request;
+    const req = {
+      auth: { userId: 6n, tenantId: 11n, email: "platformadmin@platform.internal" },
+    } as unknown as Request;
     const res = mockRes();
 
     await authController.me(req, res);
@@ -333,7 +326,7 @@ describe("authenticate middleware", () => {
 
   it("attaches auth context and calls next for a valid access token", () => {
     const token = jwt.sign(
-      { sub: "42", tenantId: "7", username: "alice", type: "access" },
+      { sub: "42", tenantId: "7", email: "alice@acme.test", type: "access" },
       env.JWT_ACCESS_SECRET,
     );
     const req = { headers: { authorization: `Bearer ${token}` } } as unknown as Request;
@@ -343,6 +336,6 @@ describe("authenticate middleware", () => {
     authenticate(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.auth).toEqual({ userId: 42n, tenantId: 7n, username: "alice" });
+    expect(req.auth).toEqual({ userId: 42n, tenantId: 7n, email: "alice@acme.test" });
   });
 });

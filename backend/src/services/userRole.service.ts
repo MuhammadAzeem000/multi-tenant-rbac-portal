@@ -4,14 +4,12 @@ import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/
 const roleSelect = {
   id: true,
   name: true,
-  code: true,
-  priority: true,
 } as const;
 
 export async function getRolesForUser(
   userId: bigint,
   params: { page: number; pageSize: number },
-): Promise<PaginatedResult<{ id: bigint; name: string; code: string | null; priority: number; assignedAt: Date }>> {
+): Promise<PaginatedResult<{ id: bigint; name: string; assignedAt: Date }>> {
   const where = { userId };
   const { skip, take } = toSkipTake(params.page, params.pageSize);
 

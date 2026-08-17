@@ -82,7 +82,7 @@ describe("role.controller", () => {
     mockedPrisma.role.count.mockResolvedValue(0);
     const req = {
       query: { tenantId: "999" },
-      auth: { userId: 1n, tenantId: 5n, username: "alice" },
+      auth: { userId: 1n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -103,18 +103,17 @@ describe("role.controller", () => {
     expect(mockedPrisma.role.create).not.toHaveBeenCalled();
   });
 
-  it("createRole normalizes an empty-string code to undefined instead of storing it literally", async () => {
+  it("createRole creates the role for the caller's own tenant", async () => {
     mockedPrisma.role.create.mockResolvedValue({ id: 1n });
     const req = {
-      body: { tenantId: "1", name: "Auditor", code: "" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      body: { tenantId: "1", name: "Auditor" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
     await roleController.createRole(req, res);
 
     const dataArg = mockedPrisma.role.create.mock.calls[0][0].data;
-    expect(dataArg.code).toBeUndefined();
     expect(dataArg.tenantId).toBe(5n);
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -134,7 +133,7 @@ describe("role.controller", () => {
     const req = {
       params: { id: "1" },
       body: { isActive: false },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -150,7 +149,7 @@ describe("role.controller", () => {
     const req = {
       params: { id: "1" },
       body: { isActive: false },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -164,7 +163,7 @@ describe("role.controller", () => {
     mockedPrisma.userRole.findFirst.mockResolvedValue({ userId: 9n });
     const req = {
       params: { id: "1" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -182,7 +181,7 @@ describe("role.controller", () => {
     mockedPrisma.userRole.count.mockResolvedValue(1);
     const req = {
       params: { id: "1" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
@@ -201,7 +200,7 @@ describe("role.controller", () => {
     mockedPrisma.role.update.mockResolvedValue({ id: 1n });
     const req = {
       params: { id: "1" },
-      auth: { userId: 9n, tenantId: 5n, username: "alice" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 

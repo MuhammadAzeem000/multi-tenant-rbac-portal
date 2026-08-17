@@ -4,7 +4,6 @@ import { buildPaginationMeta, PaginatedResult, toSkipTake } from "../interfaces/
 const permissionSelect = {
   id: true,
   name: true,
-  code: true,
   moduleId: true,
   actionId: true,
 } as const;
@@ -16,7 +15,6 @@ export async function getPermissionsForRole(
   PaginatedResult<{
     id: bigint;
     name: string;
-    code: string;
     moduleId: bigint;
     actionId: bigint;
     assignedAt: Date;
