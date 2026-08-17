@@ -10,7 +10,7 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   const user = useAuthStore((state) => state.user)
-  const tenantSlug = useAuthStore((state) => state.tenantSlug)
+  const tenantDomain = useAuthStore((state) => state.tenantDomain)
   const logout = useLogout()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -20,9 +20,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <IconButton label="Open navigation" onClick={onMenuClick} className="md:hidden">
           <Menu className="size-4.5" aria-hidden="true" />
         </IconButton>
-        {tenantSlug && (
+        {tenantDomain && (
           <span className="hidden rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500 sm:inline-block">
-            {tenantSlug}
+            {tenantDomain}
           </span>
         )}
       </div>

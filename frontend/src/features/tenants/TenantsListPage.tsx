@@ -13,6 +13,7 @@ import { IconButton } from '@/components/ui/IconButton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useListState } from '@/hooks/useListState'
+import { useMyEnabledModuleNames } from '@/hooks/useMyModules'
 import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
@@ -27,6 +28,11 @@ export function TenantsListPage() {
   const queryClient = useQueryClient()
   const currentTenantId = useAuthStore((state) => state.user?.tenantId)
   const isPlatformUser = useAuthStore((state) => state.user?.isPlatformUser ?? false)
+  const enabledModules = useMyEnabledModuleNames()
+  // Not platform-exclusive — any tenant with the Tenants module enabled
+  // manages its own child tenants the same way the platform manages its
+  // top-level ones.
+  const canBrowseTenants = isPlatformUser || enabledModules.has('Tenants')
   const { page, pageSize, search, isActive, setPage, setPageSize, setSearch, setIsActive } = useListState()
 
   const [drawerTenant, setDrawerTenant] = useState<Tenant | 'new' | null>(null)
@@ -37,7 +43,7 @@ export function TenantsListPage() {
     queryKey: ['tenants', { page, pageSize, search, isActive }],
     queryFn: () => tenantsApi.list({ page, pageSize, search, isActive }),
     placeholderData: (prev) => prev,
-    enabled: isPlatformUser,
+    enabled: canBrowseTenants,
   })
 
   const createMutation = useMutation({
@@ -81,24 +87,19 @@ export function TenantsListPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  // Browsing every tenant is a platform-exclusive capability — a regular
-  // tenant admin only ever has one tenant, so send them straight to it.
-  if (!isPlatformUser) {
+  // Browsing a tenant list is gated by the Tenants module, not by being the
+  // platform — a tenant without it only ever has the one organization it
+  // belongs to, so send them straight there.
+  if (!canBrowseTenants) {
     return <Navigate to={`/tenants/${currentTenantId}`} replace />
   }
 
   const columns = [
     columnHelper.accessor('name', {
       header: 'Tenant',
-      cell: (info) => (
-        <div>
-          <div className="font-medium text-slate-900">{info.getValue()}</div>
-          <div className="text-xs text-slate-400">{info.row.original.slug}</div>
-        </div>
-      ),
+      cell: (info) => <div className="font-medium text-slate-900">{info.getValue()}</div>,
     }),
     columnHelper.accessor('domain', { header: 'Domain' }),
-    columnHelper.accessor('email', { header: 'Email', cell: (info) => info.getValue() ?? '—' }),
     columnHelper.accessor('isActive', {
       header: 'Status',
       cell: (info) => <StatusBadge isActive={info.getValue()} />,
@@ -167,8 +168,12 @@ export function TenantsListPage() {
   return (
     <div>
       <PageHeader
-        title="Tenants"
-        description="Organizations provisioned on this platform."
+        title={isPlatformUser ? 'Tenants' : 'Sub-organizations'}
+        description={
+          isPlatformUser
+            ? 'Organizations provisioned on this platform.'
+            : 'Organizations created under your own tenant.'
+        }
         actions={
           <Button variant="primary" onClick={() => setDrawerTenant('new')}>
             <Plus className="size-3.5" aria-hidden="true" />
@@ -185,7 +190,7 @@ export function TenantsListPage() {
         onPageSizeChange={setPageSize}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search by name, slug, code, domain, or email…"
+        searchPlaceholder="Search by name or domain…"
         isLoading={query.isLoading}
         isError={query.isError}
         errorMessage={getErrorMessage(query.error)}

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { loginSchema, refreshSchema, registerSchema } from "../interfaces/auth";
 import * as authService from "../services/auth.service";
+import * as tenantModuleService from "../services/tenantModule.service";
 
 export async function login(req: Request, res: Response) {
   const result = loginSchema.safeParse(req.body);
@@ -57,4 +58,12 @@ export async function me(req: Request, res: Response) {
     return;
   }
   res.json(user);
+}
+
+// The caller's own tenant's module entitlements — no special permission
+// needed beyond being signed in, since this is just "what can I see", used
+// to drive nav/menu visibility on the frontend.
+export async function myModules(req: Request, res: Response) {
+  const modules = await tenantModuleService.getModulesForTenant(req.auth!.tenantId);
+  res.json({ data: modules });
 }

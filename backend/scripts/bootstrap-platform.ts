@@ -98,7 +98,7 @@ async function main() {
   if (tenant) {
     console.log(`Platform tenant already exists (id ${tenant.id}, domain "${tenant.domain}") — reusing it.`);
   } else {
-    const created = await tenantService.createTenant({ name: tenantName, domain: tenantDomain });
+    const created = await tenantService.createTenant({ name: tenantName, domain: tenantDomain }, null);
     await prisma.tenant.update({ where: { id: created.id }, data: { isPlatform: true } });
     tenant = { id: created.id, domain: tenantDomain };
     console.log(`Created platform tenant (id ${tenant.id}, domain "${tenant.domain}").`);
@@ -140,9 +140,11 @@ async function main() {
   });
 
   // Every module, so platform staff can manage tenants/users/roles/etc. and
-  // review audit logs. Safe to call on every run — skipDuplicates keeps it a
-  // no-op once granted, and it also tops up any module added since the last run.
-  await tenantModuleService.grantStandardModuleAccess(tenant.id);
+  // review audit logs. The platform tenant has no parent to cap it, so this
+  // grants everything active. Safe to call on every run — skipDuplicates
+  // keeps it a no-op once granted, and it also tops up any module added
+  // since the last run.
+  await tenantModuleService.grantInheritedModuleAccess(tenant.id, null);
 
   const email = `${adminEmailLocalPart}@${tenant.domain}`;
   const existingUser = await prisma.user.findFirst({

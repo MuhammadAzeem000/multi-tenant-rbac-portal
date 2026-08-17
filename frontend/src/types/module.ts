@@ -1,7 +1,6 @@
 export interface AppModule {
   id: string
   name: string
-  code: string
   description: string | null
   icon: string | null
   route: string | null
@@ -14,7 +13,6 @@ export interface AppModule {
 
 export interface CreateModuleInput {
   name: string
-  code: string
   description?: string
   icon?: string
   route?: string

@@ -16,7 +16,7 @@ export function useRegister() {
       setSession({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        tenantSlug: variables.tenantSlug,
+        tenantDomain: variables.tenantDomain,
         user: data.user,
       })
       toast.success('Organization created')
@@ -38,7 +38,7 @@ export function useLogin() {
       setSession({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        tenantSlug: variables.tenantSlug,
+        tenantDomain: variables.tenantDomain,
         user: data.user,
       })
       navigate('/', { replace: true })

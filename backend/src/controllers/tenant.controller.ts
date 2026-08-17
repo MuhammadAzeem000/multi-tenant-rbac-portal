@@ -17,21 +17,27 @@ function parseId(req: Request, res: Response): bigint | null {
 }
 
 // A tenant is always reachable by its own members (self); reachable by anyone
-// else only if they're a platform-tenant member holding the matching permission.
+// else only if the caller's own tenant is an ancestor of it (i.e. the caller
+// is somewhere up its creation chain) and holds the matching permission.
+// Not platform-exclusive: a reseller tenant reaches its own descendants the
+// same way the platform reaches everyone (since everyone descends from it).
 async function canAccessTenant(req: Request, id: bigint, actionName: string): Promise<boolean> {
   if (req.auth!.tenantId === id) return true;
 
-  const isPlatform = await platformAuthService.isPlatformTenant(req.auth!.tenantId);
-  if (!isPlatform) return false;
+  const isAncestor = await tenantService.isAncestorOf(req.auth!.tenantId, id);
+  if (!isAncestor) return false;
 
-  return platformAuthService.userHasPermission(req.auth!.userId, PLATFORM_MODULES.TENANTS, actionName);
+  return platformAuthService.hasModulePermission(req.auth!.tenantId, req.auth!.userId, PLATFORM_MODULES.TENANTS, actionName);
 }
 
 export async function getTenants(req: Request, res: Response) {
   const query = parseQuery(tenantListQuerySchema, req, res);
   if (!query) return;
 
-  const result = await tenantService.getTenants(query);
+  // Always scoped to the caller's own subtree (self plus descendants) —
+  // never siblings or ancestors, regardless of what permissions they hold.
+  const visibleTenantIds = await tenantService.getDescendantTenantIds(req.auth!.tenantId);
+  const result = await tenantService.getTenants({ ...query, visibleTenantIds });
   res.json(result);
 }
 
@@ -59,7 +65,11 @@ export async function createTenant(req: Request, res: Response) {
     return;
   }
 
-  const tenant = await tenantService.createTenant(result.data);
+  // The new tenant's parent is always the creating admin's own tenant —
+  // never client-supplied. This is what makes "any parent tenant's own
+  // admins can create children" work: creating under yourself needs no
+  // extra reach check, unlike touching an *existing* tenant.
+  const tenant = await tenantService.createTenant(result.data, req.auth!.tenantId);
 
   await auditLogService.recordAuditLog({
     actorUserId: req.auth!.userId,
@@ -113,6 +123,11 @@ export async function setTenantStatus(req: Request, res: Response) {
     return;
   }
 
+  if (!(await tenantService.isAncestorOf(req.auth!.tenantId, id))) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
   const tenant = await tenantService.setTenantStatus(id, result.data.isActive);
 
   await auditLogService.recordAuditLog({
@@ -135,9 +150,15 @@ export async function deleteTenant(req: Request, res: Response) {
     return;
   }
 
+  if (!(await tenantService.isAncestorOf(req.auth!.tenantId, id))) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
   if (await tenantService.tenantHasDependents(id)) {
     res.status(409).json({
-      error: "This tenant still has users, roles, departments, or permissions. Remove them before deleting the tenant.",
+      error:
+        "This tenant still has users, roles, departments, permissions, or child tenants. Remove them before deleting the tenant.",
     });
     return;
   }

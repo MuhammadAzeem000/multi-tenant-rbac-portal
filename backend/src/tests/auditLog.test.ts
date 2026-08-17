@@ -44,10 +44,26 @@ describe("auditLog.service", () => {
     mockedPrisma.auditLog.findMany.mockResolvedValue([]);
     mockedPrisma.auditLog.count.mockResolvedValue(0);
 
-    await auditLogService.getAuditLogs({ page: 1, pageSize: 20 });
+    await auditLogService.getAuditLogs({ page: 1, pageSize: 20, visibleTenantIds: [1n] });
 
     expect(mockedPrisma.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { createdAt: "desc" }, skip: 0, take: 20 }),
     );
+  });
+
+  it("getAuditLogs scopes to the visible tenant ids, always including system-level (null tenantId) entries", async () => {
+    mockedPrisma.auditLog.findMany.mockResolvedValue([]);
+    mockedPrisma.auditLog.count.mockResolvedValue(0);
+
+    await auditLogService.getAuditLogs({ page: 1, pageSize: 20, visibleTenantIds: [1n, 2n] });
+
+    expect(mockedPrisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { OR: [{ tenantId: null }, { tenantId: { in: [1n, 2n] } }] },
+      }),
+    );
+    expect(mockedPrisma.auditLog.count).toHaveBeenCalledWith({
+      where: { OR: [{ tenantId: null }, { tenantId: { in: [1n, 2n] } }] },
+    });
   });
 });

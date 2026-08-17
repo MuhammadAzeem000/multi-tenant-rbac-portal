@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import * as platformAuthService from "./platformAuth.service";
 import * as tenantService from "./tenant.service";
 import * as userService from "./user.service";
 import { UserResponse } from "../interfaces/user";
@@ -56,10 +57,18 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
   const modules = await Promise.all(MODULES.map(findOrCreateModule));
   const actions = await Promise.all(ACTIONS.map(findOrCreateAction));
 
-  const tenant = await tenantService.createTenant({
-    name: input.tenantName,
-    domain: input.tenantDomain,
-  });
+  // A publicly self-registered tenant always becomes a direct child of the
+  // platform tenant — the *other* way to create a tenant (POST /tenants, an
+  // authenticated admin acting within their own tenant) is what lets a
+  // reseller create children under itself instead.
+  const platformTenantId = await platformAuthService.getPlatformTenantId();
+  const tenant = await tenantService.createTenant(
+    {
+      name: input.tenantName,
+      domain: input.tenantDomain,
+    },
+    platformTenantId,
+  );
 
   const permissions = await Promise.all(
     modules.flatMap((module) =>

@@ -1,17 +1,15 @@
 import type { User } from './user'
 
 export interface LoginRequest {
-  tenantSlug: string
-  identifier: string
+  tenantDomain: string
+  email: string
   password: string
 }
 
 export interface RegisterRequest {
   tenantName: string
-  tenantSlug: string
   tenantDomain: string
   adminName: string
-  adminUsername: string
   adminEmailLocalPart: string
   adminPassword: string
 }

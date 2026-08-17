@@ -80,12 +80,7 @@ export function ModulesListPage() {
   const columns = [
     columnHelper.accessor('name', {
       header: 'Module',
-      cell: (info) => (
-        <div>
-          <div className="font-medium text-slate-900">{info.getValue()}</div>
-          <div className="font-mono text-xs text-slate-400">{info.row.original.code}</div>
-        </div>
-      ),
+      cell: (info) => <div className="font-medium text-slate-900">{info.getValue()}</div>,
     }),
     columnHelper.accessor('route', { header: 'Route', cell: (info) => info.getValue() ?? '—' }),
     columnHelper.accessor('sortOrder', { header: 'Sort order' }),
@@ -184,7 +179,7 @@ export function ModulesListPage() {
         onPageSizeChange={setPageSize}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search by name or code…"
+        searchPlaceholder="Search by name…"
         isLoading={query.isLoading}
         isError={query.isError}
         errorMessage={getErrorMessage(query.error)}

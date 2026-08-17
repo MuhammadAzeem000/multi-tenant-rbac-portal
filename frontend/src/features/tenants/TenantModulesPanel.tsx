@@ -10,10 +10,9 @@ import { toast } from '@/stores/toastStore'
 
 interface TenantModulesPanelProps {
   tenantId: string
-  tenantIsPlatform: boolean
 }
 
-export function TenantModulesPanel({ tenantId, tenantIsPlatform }: TenantModulesPanelProps) {
+export function TenantModulesPanel({ tenantId }: TenantModulesPanelProps) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -52,12 +51,12 @@ export function TenantModulesPanel({ tenantId, tenantIsPlatform }: TenantModules
   return (
     <div>
       <p className="mb-3 text-sm text-slate-500">
-        Control which modules this organization has access to. Platform-only modules can't be granted to a
-        regular tenant.
+        Control which modules this organization has access to. A module can only be enabled here if the
+        parent organization has it enabled too.
       </p>
       <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
         {modules.map((module) => {
-          const lockedPlatformOnly = module.isPlatformOnly && !tenantIsPlatform
+          const lockedByParent = !module.availableToParent
           const pendingHere =
             setModuleMutation.isPending && setModuleMutation.variables?.moduleId === module.moduleId
           return (
@@ -65,16 +64,24 @@ export function TenantModulesPanel({ tenantId, tenantIsPlatform }: TenantModules
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-slate-800">{module.name}</p>
-                  {module.isPlatformOnly && <Badge tone="amber">Platform-only</Badge>}
+                  {lockedByParent && <Badge tone="amber">Not available to parent</Badge>}
                 </div>
-                <p className="font-mono text-xs text-slate-400">{module.code}</p>
+                {module.description && <p className="text-xs text-slate-400">{module.description}</p>}
               </div>
-              <Switch
-                checked={module.isEnabled}
-                disabled={pendingHere || (lockedPlatformOnly && !module.isEnabled)}
-                label={`${module.isEnabled ? 'Disable' : 'Enable'} ${module.name}`}
-                onChange={(checked) => setModuleMutation.mutate({ moduleId: module.moduleId, isEnabled: checked })}
-              />
+              <span
+                title={
+                  lockedByParent && !module.isEnabled
+                    ? "The parent organization doesn't have this module enabled"
+                    : undefined
+                }
+              >
+                <Switch
+                  checked={module.isEnabled}
+                  disabled={pendingHere || (lockedByParent && !module.isEnabled)}
+                  label={`${module.isEnabled ? 'Disable' : 'Enable'} ${module.name}`}
+                  onChange={(checked) => setModuleMutation.mutate({ moduleId: module.moduleId, isEnabled: checked })}
+                />
+              </span>
             </li>
           )
         })}

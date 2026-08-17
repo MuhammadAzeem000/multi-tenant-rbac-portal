@@ -5,12 +5,14 @@ jest.mock("../config/prisma", () => ({
   prisma: {
     tenant: { findFirst: jest.fn() },
     userRole: { count: jest.fn() },
+    tenantModule: { count: jest.fn() },
   },
 }));
 
 const mockedPrisma = prisma as unknown as {
   tenant: { findFirst: jest.Mock };
   userRole: { count: jest.Mock };
+  tenantModule: { count: jest.Mock };
 };
 
 beforeEach(() => {
@@ -41,23 +43,6 @@ describe("getPlatformTenantId", () => {
   });
 });
 
-describe("isPlatformTenant", () => {
-  it("returns true when the tenantId matches the platform tenant", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValue({ id: 7n });
-    expect(await platformAuthService.isPlatformTenant(7n)).toBe(true);
-  });
-
-  it("returns false when the tenantId doesn't match", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValue({ id: 7n });
-    expect(await platformAuthService.isPlatformTenant(1n)).toBe(false);
-  });
-
-  it("returns false when there's no platform tenant at all", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValue(null);
-    expect(await platformAuthService.isPlatformTenant(1n)).toBe(false);
-  });
-});
-
 describe("userHasPermission", () => {
   it("returns true when the user holds a role granting the permission", async () => {
     mockedPrisma.userRole.count.mockResolvedValue(1);
@@ -84,5 +69,42 @@ describe("userHasPermission", () => {
   it("returns false when no role grants the permission", async () => {
     mockedPrisma.userRole.count.mockResolvedValue(0);
     expect(await platformAuthService.userHasPermission(9n, "Tenants", "Delete")).toBe(false);
+  });
+});
+
+describe("tenantCanUseModule", () => {
+  it("returns true when the tenant has the module enabled", async () => {
+    mockedPrisma.tenantModule.count.mockResolvedValue(1);
+    expect(await platformAuthService.tenantCanUseModule(5n, "Tenants")).toBe(true);
+    expect(mockedPrisma.tenantModule.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: 5n, isEnabled: true, module: expect.objectContaining({ name: "Tenants" }) }),
+      }),
+    );
+  });
+
+  it("returns false when the tenant doesn't have the module enabled", async () => {
+    mockedPrisma.tenantModule.count.mockResolvedValue(0);
+    expect(await platformAuthService.tenantCanUseModule(5n, "Tenants")).toBe(false);
+  });
+});
+
+describe("hasModulePermission", () => {
+  it("returns false without checking permissions when the module isn't enabled for the tenant", async () => {
+    mockedPrisma.tenantModule.count.mockResolvedValue(0);
+    expect(await platformAuthService.hasModulePermission(5n, 9n, "Tenants", "Delete")).toBe(false);
+    expect(mockedPrisma.userRole.count).not.toHaveBeenCalled();
+  });
+
+  it("returns false when the module is enabled but the user lacks the permission", async () => {
+    mockedPrisma.tenantModule.count.mockResolvedValue(1);
+    mockedPrisma.userRole.count.mockResolvedValue(0);
+    expect(await platformAuthService.hasModulePermission(5n, 9n, "Tenants", "Delete")).toBe(false);
+  });
+
+  it("returns true when the module is enabled and the user holds the permission", async () => {
+    mockedPrisma.tenantModule.count.mockResolvedValue(1);
+    mockedPrisma.userRole.count.mockResolvedValue(1);
+    expect(await platformAuthService.hasModulePermission(5n, 9n, "Tenants", "Delete")).toBe(true);
   });
 });

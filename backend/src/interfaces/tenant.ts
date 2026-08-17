@@ -42,6 +42,9 @@ export interface TenantResponse {
   status: string;
   isActive: boolean;
   isPlatform: boolean;
+  // The tenant that created this one; null only for the platform tenant.
+  // Server-derived only — never accepted as client input.
+  parentTenantId: bigint | null;
   settings: unknown;
   metadata: unknown;
   createdAt: Date;

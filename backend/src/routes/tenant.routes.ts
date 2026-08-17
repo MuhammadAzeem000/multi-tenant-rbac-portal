@@ -1,17 +1,20 @@
 import { Router } from "express";
 import * as tenantController from "../controllers/tenant.controller";
-import { requirePlatformPermission } from "../middlewares/requirePlatformPermission";
+import { requireModulePermission } from "../middlewares/requireModulePermission";
 import { PLATFORM_MODULES } from "../services/platformAuth.service";
 import { asyncHandler } from "../utils";
 
 export const tenantRouter = Router();
 
-const requireTenantView = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "View");
-const requireTenantCreate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Create");
-const requireTenantUpdate = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Update");
-const requireTenantDelete = requirePlatformPermission(PLATFORM_MODULES.TENANTS, "Delete");
+const requireTenantView = requireModulePermission(PLATFORM_MODULES.TENANTS, "View");
+const requireTenantCreate = requireModulePermission(PLATFORM_MODULES.TENANTS, "Create");
+const requireTenantUpdate = requireModulePermission(PLATFORM_MODULES.TENANTS, "Update");
+const requireTenantDelete = requireModulePermission(PLATFORM_MODULES.TENANTS, "Delete");
 
-// Listing/creating/deleting spans every tenant, so it's platform-permission only.
+// Any tenant with the Tenants module + permission can list/create/delete —
+// scoped to its own subtree (self plus descendants), enforced in the
+// controller. Not platform-exclusive: a reseller tenant manages its own
+// children exactly the same way the platform manages its top-level tenants.
 tenantRouter.get("/", requireTenantView, asyncHandler(tenantController.getTenants));
 tenantRouter.post("/", requireTenantCreate, asyncHandler(tenantController.createTenant));
 tenantRouter.delete("/:id", requireTenantDelete, asyncHandler(tenantController.deleteTenant));
@@ -21,5 +24,6 @@ tenantRouter.delete("/:id", requireTenantDelete, asyncHandler(tenantController.d
 tenantRouter.get("/:id", asyncHandler(tenantController.getTenantById));
 tenantRouter.put("/:id", asyncHandler(tenantController.updateTenant));
 
-// Suspend/activate is exclusively a platform action — not reachable by a tenant's own members.
+// Suspend/activate: reachable by the target tenant's own ancestors (checked in
+// the controller), never by the tenant's own members.
 tenantRouter.patch("/:id/status", requireTenantUpdate, asyncHandler(tenantController.setTenantStatus));

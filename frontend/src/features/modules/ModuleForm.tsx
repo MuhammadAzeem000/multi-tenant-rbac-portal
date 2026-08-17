@@ -10,7 +10,6 @@ import type { AppModule } from '@/types/module'
 
 const moduleFormSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100),
-  code: z.string().trim().min(1, 'Code is required').max(100),
   route: z.string().trim().max(255).optional().or(z.literal('')),
   icon: z.string().trim().max(100).optional().or(z.literal('')),
   sortOrder: z.coerce.number().int().min(0).max(10_000),
@@ -35,7 +34,6 @@ export function ModuleForm({ formId, defaultValues, onSubmit }: ModuleFormProps)
     resolver: zodResolver(moduleFormSchema),
     defaultValues: {
       name: defaultValues?.name ?? '',
-      code: defaultValues?.code ?? '',
       route: defaultValues?.route ?? '',
       icon: defaultValues?.icon ?? '',
       sortOrder: defaultValues?.sortOrder ?? 0,
@@ -47,7 +45,6 @@ export function ModuleForm({ formId, defaultValues, onSubmit }: ModuleFormProps)
     if (defaultValues) {
       reset({
         name: defaultValues.name,
-        code: defaultValues.code,
         route: defaultValues.route ?? '',
         icon: defaultValues.icon ?? '',
         sortOrder: defaultValues.sortOrder,
@@ -60,9 +57,6 @@ export function ModuleForm({ formId, defaultValues, onSubmit }: ModuleFormProps)
     <form id={formId} onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3" noValidate>
       <FormField label="Name" required error={errors.name?.message}>
         {(id) => <Input id={id} invalid={Boolean(errors.name)} {...register('name')} />}
-      </FormField>
-      <FormField label="Code" required hint="Unique machine-readable identifier." error={errors.code?.message}>
-        {(id) => <Input id={id} invalid={Boolean(errors.code)} {...register('code')} />}
       </FormField>
       <FormField label="Route" error={errors.route?.message}>
         {(id) => <Input id={id} placeholder="/settings/users" invalid={Boolean(errors.route)} {...register('route')} />}

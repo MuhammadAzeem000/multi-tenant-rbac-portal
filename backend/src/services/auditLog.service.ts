@@ -50,12 +50,19 @@ export function recordAuditLog(input: RecordAuditLogInput): Promise<AuditLogEntr
 export async function getAuditLogs(params: {
   page: number;
   pageSize: number;
+  // Restricts results to entries scoped to this set of tenant ids (the
+  // caller's own tenant plus its descendants) — entries with no tenantId
+  // (system-level actions) are always included.
+  visibleTenantIds: bigint[];
 }): Promise<PaginatedResult<AuditLogEntry>> {
   const { skip, take } = toSkipTake(params.page, params.pageSize);
+  const where: Prisma.AuditLogWhereInput = {
+    OR: [{ tenantId: null }, { tenantId: { in: params.visibleTenantIds } }],
+  };
 
   const [data, total] = await Promise.all([
-    prisma.auditLog.findMany({ select: auditLogSelect, orderBy: { createdAt: "desc" }, skip, take }),
-    prisma.auditLog.count(),
+    prisma.auditLog.findMany({ where, select: auditLogSelect, orderBy: { createdAt: "desc" }, skip, take }),
+    prisma.auditLog.count({ where }),
   ]);
 
   return { data, pagination: buildPaginationMeta(total, params.page, params.pageSize) };

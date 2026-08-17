@@ -5,14 +5,14 @@ import type { User } from '@/types/user'
 interface AuthSession {
   accessToken: string
   refreshToken: string
-  tenantSlug: string
+  tenantDomain: string
   user: User
 }
 
 interface AuthState {
   accessToken: string | null
   refreshToken: string | null
-  tenantSlug: string | null
+  tenantDomain: string | null
   user: User | null
   setSession: (session: AuthSession) => void
   setAccessToken: (accessToken: string) => void
@@ -25,26 +25,26 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       accessToken: null,
       refreshToken: null,
-      tenantSlug: null,
+      tenantDomain: null,
       user: null,
       setSession: (session) =>
         set({
           accessToken: session.accessToken,
           refreshToken: session.refreshToken,
-          tenantSlug: session.tenantSlug,
+          tenantDomain: session.tenantDomain,
           user: session.user,
         }),
       setAccessToken: (accessToken) => set({ accessToken }),
       setUser: (user) => set({ user }),
       clearSession: () =>
-        set({ accessToken: null, refreshToken: null, tenantSlug: null, user: null }),
+        set({ accessToken: null, refreshToken: null, tenantDomain: null, user: null }),
     }),
     {
       name: 'vapt-auth',
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
-        tenantSlug: state.tenantSlug,
+        tenantDomain: state.tenantDomain,
         user: state.user,
       }),
     },

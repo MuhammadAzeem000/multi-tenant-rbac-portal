@@ -88,7 +88,6 @@ export function ModuleDetailPage() {
             <StatusBadge isActive={appModule.isActive} />
             {appModule.isSystem && <Badge tone="amber">System</Badge>}
           </div>
-          <p className="mt-0.5 font-mono text-sm text-slate-500">{appModule.code}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           {appModule.isActive ? (

@@ -1,20 +1,12 @@
 export interface Tenant {
   id: string
   name: string
-  slug: string
-  code: string | null
   domain: string
   description: string | null
-  logoUrl: string | null
-  websiteUrl: string | null
-  email: string | null
-  phone: string | null
-  timezone: string | null
-  locale: string | null
-  currency: string | null
   status: string
   isActive: boolean
   isPlatform: boolean
+  // The tenant that created this one; null only for the platform tenant.
   parentTenantId: string | null
   settings: unknown
   metadata: unknown
@@ -24,17 +16,8 @@ export interface Tenant {
 
 export interface CreateTenantInput {
   name: string
-  slug: string
-  code?: string
   domain: string
   description?: string
-  logoUrl?: string
-  websiteUrl?: string
-  email?: string
-  phone?: string
-  timezone?: string
-  locale?: string
-  currency?: string
 }
 
 export interface UpdateTenantInput extends Partial<CreateTenantInput> {

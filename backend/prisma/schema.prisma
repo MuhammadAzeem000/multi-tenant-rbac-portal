@@ -17,6 +17,13 @@ model Tenant {
   isActive   Boolean @default(true) @map("is_active")
   isPlatform Boolean @default(false) @map("is_platform")
 
+  // The tenant that created this one. Null only for the platform tenant (the
+  // root). Never client-settable — always the creating admin's own tenantId,
+  // set once at creation and immutable afterward so the tree can never cycle.
+  parentTenantId BigInt? @map("parent_tenant_id")
+  parentTenant   Tenant?  @relation("TenantHierarchy", fields: [parentTenantId], references: [id])
+  childTenants   Tenant[] @relation("TenantHierarchy")
+
   settings Json? @db.Json
   metadata Json? @db.Json
 
@@ -35,6 +42,7 @@ model Tenant {
 
   @@index([status])
   @@index([isPlatform])
+  @@index([parentTenantId])
   @@map("tenants")
 }
 

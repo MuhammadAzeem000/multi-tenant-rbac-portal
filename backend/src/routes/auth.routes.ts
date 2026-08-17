@@ -10,3 +10,4 @@ authRouter.post("/login", asyncHandler(authController.login));
 authRouter.post("/refresh", asyncHandler(authController.refresh));
 authRouter.post("/logout", authenticate, asyncHandler(authController.logout));
 authRouter.get("/me", authenticate, asyncHandler(authController.me));
+authRouter.get("/me/modules", authenticate, asyncHandler(authController.myModules));

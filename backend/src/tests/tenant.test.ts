@@ -10,6 +10,7 @@ jest.mock("../config/prisma", () => ({
     tenant: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
@@ -21,7 +22,7 @@ jest.mock("../config/prisma", () => ({
     userRole: { count: jest.fn() },
     auditLog: { create: jest.fn() },
     module: { findMany: jest.fn() },
-    tenantModule: { createMany: jest.fn() },
+    tenantModule: { createMany: jest.fn(), findMany: jest.fn(), count: jest.fn() },
   },
 }));
 
@@ -29,6 +30,7 @@ const mockedPrisma = prisma as unknown as {
   tenant: {
     findMany: jest.Mock;
     findFirst: jest.Mock;
+    findUnique: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     count: jest.Mock;
@@ -40,7 +42,7 @@ const mockedPrisma = prisma as unknown as {
   userRole: { count: jest.Mock };
   auditLog: { create: jest.Mock };
   module: { findMany: jest.Mock };
-  tenantModule: { createMany: jest.Mock };
+  tenantModule: { createMany: jest.Mock; findMany: jest.Mock; count: jest.Mock };
 };
 
 function mockNoDependents() {
@@ -48,11 +50,15 @@ function mockNoDependents() {
   mockedPrisma.role.count.mockResolvedValue(0);
   mockedPrisma.department.count.mockResolvedValue(0);
   mockedPrisma.permission.count.mockResolvedValue(0);
+  mockedPrisma.tenant.count.mockResolvedValue(0);
 }
 
 beforeEach(() => {
   __resetPlatformTenantCache();
+  jest.clearAllMocks();
   mockedPrisma.auditLog.create.mockResolvedValue({ id: 1n });
+  mockedPrisma.tenantModule.findMany.mockResolvedValue([]);
+  mockedPrisma.tenant.findMany.mockResolvedValue([]);
 });
 
 function mockRes() {
@@ -64,14 +70,14 @@ function mockRes() {
 }
 
 describe("tenant.service", () => {
-  it("getTenants filters out soft-deleted tenants and paginates", async () => {
+  it("getTenants filters out soft-deleted tenants, scopes to visibleTenantIds, and paginates", async () => {
     mockedPrisma.tenant.findMany.mockResolvedValue([{ id: 1n, name: "Acme" }]);
     mockedPrisma.tenant.count.mockResolvedValue(1);
 
-    const result = await tenantService.getTenants({ page: 1, pageSize: 20 });
+    const result = await tenantService.getTenants({ page: 1, pageSize: 20, visibleTenantIds: [1n] });
 
     expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null }, skip: 0, take: 20 }),
+      expect.objectContaining({ where: { deletedAt: null, id: { in: [1n] } }, skip: 0, take: 20 }),
     );
     expect(result.data).toEqual([{ id: 1n, name: "Acme" }]);
     expect(result.pagination).toEqual({ page: 1, pageSize: 20, total: 1, totalPages: 1 });
@@ -81,7 +87,7 @@ describe("tenant.service", () => {
     mockedPrisma.tenant.findMany.mockResolvedValue([]);
     mockedPrisma.tenant.count.mockResolvedValue(45);
 
-    const result = await tenantService.getTenants({ page: 3, pageSize: 20 });
+    const result = await tenantService.getTenants({ page: 3, pageSize: 20, visibleTenantIds: [1n] });
 
     expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 40, take: 20 }),
@@ -93,12 +99,13 @@ describe("tenant.service", () => {
     mockedPrisma.tenant.findMany.mockResolvedValue([]);
     mockedPrisma.tenant.count.mockResolvedValue(0);
 
-    await tenantService.getTenants({ page: 1, pageSize: 20, search: "acme", isActive: true });
+    await tenantService.getTenants({ page: 1, pageSize: 20, search: "acme", isActive: true, visibleTenantIds: [1n, 2n] });
 
     expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           deletedAt: null,
+          id: { in: [1n, 2n] },
           isActive: true,
           OR: [
             { name: { contains: "acme", mode: "insensitive" } },
@@ -114,19 +121,22 @@ describe("tenant.service", () => {
     expect(await tenantService.getTenantById(1n)).toBeNull();
   });
 
-  it("createTenant grants standard module access to every newly created tenant", async () => {
+  it("createTenant stores the given parentTenantId and grants only the parent's currently-enabled modules", async () => {
     mockedPrisma.tenant.create.mockResolvedValue({ id: 5n });
-    mockedPrisma.module.findMany.mockResolvedValue([{ id: 1n }, { id: 2n }]);
+    mockedPrisma.tenantModule.findMany.mockResolvedValue([{ moduleId: 1n }, { moduleId: 2n }]);
     mockedPrisma.tenantModule.createMany.mockResolvedValue({ count: 2 });
 
-    await tenantService.createTenant({ name: "Acme", domain: "acme.test" });
+    await tenantService.createTenant({ name: "Acme", domain: "acme.test" }, 11n);
 
     expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ name: "Acme", domain: "acme.test" }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "Acme", domain: "acme.test", parentTenantId: 11n }),
+      }),
     );
-    expect(mockedPrisma.module.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
+    expect(mockedPrisma.tenantModule.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tenantId: 11n, isEnabled: true } }),
     );
+    expect(mockedPrisma.module.findMany).not.toHaveBeenCalled();
     expect(mockedPrisma.tenantModule.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: [
@@ -135,6 +145,21 @@ describe("tenant.service", () => {
         ],
         skipDuplicates: true,
       }),
+    );
+  });
+
+  it("createTenant grants every active module when parentTenantId is null (the platform tenant)", async () => {
+    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+    mockedPrisma.module.findMany.mockResolvedValue([{ id: 1n }]);
+    mockedPrisma.tenantModule.createMany.mockResolvedValue({ count: 1 });
+
+    await tenantService.createTenant({ name: "Platform", domain: "platform.internal" }, null);
+
+    expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ parentTenantId: null }) }),
+    );
+    expect(mockedPrisma.module.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
     );
   });
 
@@ -147,6 +172,54 @@ describe("tenant.service", () => {
         data: expect.objectContaining({ isActive: false, deletedAt: expect.any(Date) }),
       }),
     );
+  });
+
+  it("tenantHasDependents counts child tenants alongside users/roles/departments/permissions", async () => {
+    mockNoDependents();
+    mockedPrisma.tenant.count.mockResolvedValue(1);
+
+    expect(await tenantService.tenantHasDependents(5n)).toBe(true);
+    expect(mockedPrisma.tenant.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { parentTenantId: 5n, deletedAt: null } }),
+    );
+  });
+
+  describe("getDescendantTenantIds", () => {
+    it("walks the tree breadth-first and includes the root", async () => {
+      mockedPrisma.tenant.findMany
+        .mockResolvedValueOnce([{ id: 2n }, { id: 3n }]) // children of 1
+        .mockResolvedValueOnce([{ id: 4n }]) // children of 2 or 3
+        .mockResolvedValueOnce([]); // no more children
+
+      const ids = await tenantService.getDescendantTenantIds(1n);
+
+      expect(ids).toEqual([1n, 2n, 3n, 4n]);
+    });
+
+    it("returns just the tenant itself when it has no children", async () => {
+      mockedPrisma.tenant.findMany.mockResolvedValueOnce([]);
+      expect(await tenantService.getDescendantTenantIds(1n)).toEqual([1n]);
+    });
+  });
+
+  describe("isAncestorOf", () => {
+    it("is true for a tenant checking itself", async () => {
+      expect(await tenantService.isAncestorOf(1n, 1n)).toBe(true);
+      expect(mockedPrisma.tenant.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("is true when ancestorId is somewhere up the parent chain", async () => {
+      mockedPrisma.tenant.findUnique
+        .mockResolvedValueOnce({ parentTenantId: 2n }) // tenant 3's parent
+        .mockResolvedValueOnce({ parentTenantId: 1n }); // tenant 2's parent
+
+      expect(await tenantService.isAncestorOf(1n, 3n)).toBe(true);
+    });
+
+    it("is false when the chain reaches the root without matching", async () => {
+      mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: null });
+      expect(await tenantService.isAncestorOf(1n, 2n)).toBe(false);
+    });
   });
 });
 
@@ -161,7 +234,7 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
   });
 
-  it("createTenant creates the tenant and records an audit log entry", async () => {
+  it("createTenant creates the tenant as a child of the caller's own tenant and records an audit log entry", async () => {
     mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
     const req = {
       body: { name: "Acme", domain: "acme.com" },
@@ -171,6 +244,9 @@ describe("tenant.controller", () => {
 
     await tenantController.createTenant(req, res);
 
+    expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ parentTenantId: 5n }) }),
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(mockedPrisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "tenant.create" }) }),
@@ -203,37 +279,54 @@ describe("tenant.controller", () => {
     expect(res.status).toHaveBeenCalledWith(404);
   });
 
-  it("getTenantById responds 404 for a different tenant when the caller isn't a platform admin", async () => {
+  it("getTenantById responds 404 for a tenant outside the caller's own subtree", async () => {
     const req = {
       params: { id: "2" },
       auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
     } as unknown as Request;
     const res = mockRes();
 
-    // isPlatformTenant's lookup resolves to no platform tenant at all.
-    mockedPrisma.tenant.findFirst.mockResolvedValueOnce(null);
+    // isAncestorOf(1, 2) walks up from 2 and never reaches 1.
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: null });
 
     await tenantController.getTenantById(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(mockedPrisma.tenant.findFirst).toHaveBeenCalledTimes(1);
+    expect(mockedPrisma.tenant.findFirst).not.toHaveBeenCalled();
   });
 
-  it("getTenantById proceeds for a different tenant when the caller is a platform admin with view permission", async () => {
+  it("getTenantById proceeds for a descendant tenant when the caller holds view permission", async () => {
     const req = {
       params: { id: "2" },
       auth: { userId: 9n, tenantId: 1n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();
 
-    // First findFirst call is isPlatformTenant's platform-tenant lookup; second is the actual tenant fetch.
-    mockedPrisma.tenant.findFirst.mockResolvedValueOnce({ id: 1n });
+    // isAncestorOf(1, 2): tenant 2's parent is 1.
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: 1n });
+    mockedPrisma.tenantModule.count.mockResolvedValue(1);
     mockedPrisma.userRole.count.mockResolvedValue(1);
     mockedPrisma.tenant.findFirst.mockResolvedValueOnce({ id: 2n, name: "Other" });
 
     await tenantController.getTenantById(req, res);
 
     expect(res.json).toHaveBeenCalledWith({ id: 2n, name: "Other" });
+  });
+
+  it("getTenants scopes results to the caller's own subtree", async () => {
+    mockedPrisma.tenant.findMany
+      .mockResolvedValueOnce([{ id: 2n }]) // getDescendantTenantIds: children of 1
+      .mockResolvedValueOnce([]) // no grandchildren
+      .mockResolvedValueOnce([]); // the actual list query
+    mockedPrisma.tenant.count.mockResolvedValue(0);
+    const req = { query: {}, auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" } } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.getTenants(req, res);
+
+    expect(mockedPrisma.tenant.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: { in: [1n, 2n] } }) }),
+    );
   });
 
   it("getTenants responds 400 for an out-of-range pageSize", async () => {
@@ -244,19 +337,6 @@ describe("tenant.controller", () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(mockedPrisma.tenant.findMany).not.toHaveBeenCalled();
-  });
-
-  it("getTenants defaults to page 1 / pageSize 20", async () => {
-    mockedPrisma.tenant.findMany.mockResolvedValue([]);
-    mockedPrisma.tenant.count.mockResolvedValue(0);
-    const req = { query: {} } as unknown as Request;
-    const res = mockRes();
-
-    await tenantController.getTenants(req, res);
-
-    expect(mockedPrisma.tenant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 20 }),
-    );
   });
 
   it("updateTenant rejects isActive changes, even for your own tenant", async () => {
@@ -273,8 +353,8 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
   });
 
-  it("updateTenant responds 404 for a different tenant when the caller isn't a platform admin", async () => {
-    mockedPrisma.tenant.findFirst.mockResolvedValueOnce(null);
+  it("updateTenant responds 404 for a tenant outside the caller's own subtree", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: null });
     const req = {
       params: { id: "2" },
       body: { name: "New name" },
@@ -317,7 +397,23 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
   });
 
-  it("setTenantStatus proceeds for a different tenant and records an audit log entry", async () => {
+  it("setTenantStatus responds 404 for a tenant outside the caller's own subtree", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: null });
+    const req = {
+      params: { id: "2" },
+      body: { isActive: false },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.setTenantStatus(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+  });
+
+  it("setTenantStatus proceeds for a descendant tenant and records an audit log entry", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: 1n });
     mockedPrisma.tenant.update.mockResolvedValue({ id: 2n, isActive: false, status: "suspended" });
     const req = {
       params: { id: "2" },
@@ -350,7 +446,22 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
   });
 
-  it("deleteTenant proceeds when deleting a different tenant with no dependents", async () => {
+  it("deleteTenant responds 404 for a tenant outside the caller's own subtree", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: null });
+    const req = {
+      params: { id: "2" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.deleteTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteTenant proceeds when deleting a descendant tenant with no dependents", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: 1n });
     mockNoDependents();
     mockedPrisma.tenant.update.mockResolvedValue({ id: 2n });
     const req = {
@@ -368,6 +479,7 @@ describe("tenant.controller", () => {
   it.each(["user", "role", "department", "permission"] as const)(
     "deleteTenant responds 409 when the tenant still has %ss",
     async (dependent) => {
+      mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: 1n });
       mockNoDependents();
       mockedPrisma[dependent].count.mockResolvedValue(1);
 
@@ -383,4 +495,21 @@ describe("tenant.controller", () => {
       expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
     },
   );
+
+  it("deleteTenant responds 409 when the tenant still has child tenants", async () => {
+    mockedPrisma.tenant.findUnique.mockResolvedValueOnce({ parentTenantId: 1n });
+    mockNoDependents();
+    mockedPrisma.tenant.count.mockResolvedValue(1);
+
+    const req = {
+      params: { id: "2" },
+      auth: { userId: 9n, tenantId: 1n, email: "alice@acme.test" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.deleteTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mockedPrisma.tenant.update).not.toHaveBeenCalled();
+  });
 });

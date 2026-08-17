@@ -9,7 +9,7 @@ import { FormField } from '@/components/ui/FormField'
 import { Input } from '@/components/ui/Input'
 import { useRegister } from '@/hooks/useAuth'
 
-function slugify(value: string): string {
+function domainify(value: string): string {
   return value
     .trim()
     .toLowerCase()
@@ -22,12 +22,6 @@ const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-
 const registerSchema = z
   .object({
     tenantName: z.string().trim().min(1, 'Organization name is required').max(150),
-    tenantSlug: z
-      .string()
-      .trim()
-      .min(1, 'Organization slug is required')
-      .max(100)
-      .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers, and hyphens only'),
     tenantDomain: z
       .string()
       .trim()
@@ -36,7 +30,6 @@ const registerSchema = z
       .max(255)
       .regex(domainRegex, 'Enter a valid domain, e.g. acme.com'),
     adminName: z.string().trim().min(1, 'Your name is required').max(150),
-    adminUsername: z.string().trim().min(1, 'Username is required').max(100),
     adminEmailLocalPart: z
       .string()
       .trim()
@@ -56,7 +49,6 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 
 export function RegisterPage() {
   const register = useRegister()
-  const [slugTouched, setSlugTouched] = useState(false)
   const [domainTouched, setDomainTouched] = useState(false)
   const {
     register: registerField,
@@ -84,10 +76,8 @@ export function RegisterPage() {
           onSubmit={handleSubmit((values) =>
             register.mutate({
               tenantName: values.tenantName,
-              tenantSlug: values.tenantSlug,
               tenantDomain: values.tenantDomain,
               adminName: values.adminName,
-              adminUsername: values.adminUsername,
               adminEmailLocalPart: values.adminEmailLocalPart,
               adminPassword: values.adminPassword,
             }),
@@ -105,9 +95,8 @@ export function RegisterPage() {
                 invalid={Boolean(errors.tenantName)}
                 {...registerField('tenantName', {
                   onChange: (e) => {
-                    if (!slugTouched) setValue('tenantSlug', slugify(e.target.value))
                     if (!domainTouched) {
-                      setValue('tenantDomain', `${slugify(e.target.value)}.com`)
+                      setValue('tenantDomain', `${domainify(e.target.value)}.com`)
                     }
                   },
                 })}
@@ -116,33 +105,15 @@ export function RegisterPage() {
           </FormField>
 
           <FormField
-            label="Organization slug"
-            required
-            hint="Used to sign in later. Lowercase letters, numbers, and hyphens."
-            error={errors.tenantSlug?.message}
-          >
-            {(id) => (
-              <Input
-                id={id}
-                placeholder={tenantName ? slugify(tenantName) : 'acme-corp'}
-                invalid={Boolean(errors.tenantSlug)}
-                {...registerField('tenantSlug', {
-                  onChange: () => setSlugTouched(true),
-                })}
-              />
-            )}
-          </FormField>
-
-          <FormField
             label="Organization domain"
             required
-            hint="Every user's email in this organization will be @this domain."
+            hint="Every user's email in this organization will be @this domain. Also used to sign in."
             error={errors.tenantDomain?.message}
           >
             {(id) => (
               <Input
                 id={id}
-                placeholder="acme.com"
+                placeholder={tenantName ? `${domainify(tenantName)}.com` : 'acme.com'}
                 invalid={Boolean(errors.tenantDomain)}
                 {...registerField('tenantDomain', {
                   onChange: () => setDomainTouched(true),
@@ -158,12 +129,6 @@ export function RegisterPage() {
           <FormField label="Full name" required error={errors.adminName?.message}>
             {(id) => (
               <Input id={id} invalid={Boolean(errors.adminName)} {...registerField('adminName')} />
-            )}
-          </FormField>
-
-          <FormField label="Username" required error={errors.adminUsername?.message}>
-            {(id) => (
-              <Input id={id} invalid={Boolean(errors.adminUsername)} {...registerField('adminUsername')} />
             )}
           </FormField>
 

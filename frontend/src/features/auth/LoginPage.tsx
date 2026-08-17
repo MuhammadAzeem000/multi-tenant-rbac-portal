@@ -8,9 +8,16 @@ import { FormField } from '@/components/ui/FormField'
 import { Input } from '@/components/ui/Input'
 import { useLogin } from '@/hooks/useAuth'
 
+const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+
 const loginSchema = z.object({
-  tenantSlug: z.string().trim().min(1, 'Tenant is required'),
-  identifier: z.string().trim().min(1, 'Username or email is required'),
+  tenantDomain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'Organization domain is required')
+    .regex(domainRegex, 'Enter a valid domain, e.g. acme.com'),
+  email: z.string().trim().toLowerCase().email('Enter a valid email'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -40,26 +47,27 @@ export function LoginPage() {
           className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
           noValidate
         >
-          <FormField label="Organization" required error={errors.tenantSlug?.message}>
+          <FormField label="Organization domain" required error={errors.tenantDomain?.message}>
             {(id) => (
               <Input
                 id={id}
                 autoComplete="organization"
-                placeholder="acme-corp"
-                invalid={Boolean(errors.tenantSlug)}
-                {...register('tenantSlug')}
+                placeholder="acme.com"
+                invalid={Boolean(errors.tenantDomain)}
+                {...register('tenantDomain')}
               />
             )}
           </FormField>
 
-          <FormField label="Username or email" required error={errors.identifier?.message}>
+          <FormField label="Email" required error={errors.email?.message}>
             {(id) => (
               <Input
                 id={id}
+                type="email"
                 autoComplete="username"
-                placeholder="jane.doe"
-                invalid={Boolean(errors.identifier)}
-                {...register('identifier')}
+                placeholder="jane.doe@acme.com"
+                invalid={Boolean(errors.email)}
+                {...register('email')}
               />
             )}
           </FormField>

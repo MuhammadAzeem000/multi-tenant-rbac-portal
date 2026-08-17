@@ -15,4 +15,8 @@ export interface TenantModuleResponse {
   isEnabled: boolean;
   enabledAt: Date | null;
   disabledAt: Date | null;
+  // Whether this tenant's own parent currently has the module enabled — a
+  // tenant can never enable a module its parent doesn't have. Always true
+  // for the platform tenant (no parent to cap it).
+  availableToParent: boolean;
 }

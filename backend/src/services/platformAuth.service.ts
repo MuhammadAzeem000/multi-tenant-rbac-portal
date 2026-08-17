@@ -26,11 +26,6 @@ export async function getPlatformTenantId(): Promise<bigint | null> {
   return tenant?.id ?? null;
 }
 
-export async function isPlatformTenant(tenantId: bigint): Promise<boolean> {
-  const platformTenantId = await getPlatformTenantId();
-  return platformTenantId !== null && platformTenantId === tenantId;
-}
-
 export async function userHasPermission(
   userId: bigint,
   moduleName: string,
@@ -56,4 +51,33 @@ export async function userHasPermission(
     },
   });
   return count > 0;
+}
+
+// Whether tenantId currently has moduleName enabled via its TenantModule
+// entitlement — independent of who is asking or which role they hold.
+export async function tenantCanUseModule(tenantId: bigint, moduleName: string): Promise<boolean> {
+  const count = await prisma.tenantModule.count({
+    where: {
+      tenantId,
+      isEnabled: true,
+      module: { name: moduleName, isActive: true, deletedAt: null },
+    },
+  });
+  return count > 0;
+}
+
+// The full gate for a module action: the acting user's own tenant must have
+// the module enabled AND the user's role must grant the specific action on
+// it. Deliberately not scoped to the platform tenant — any tenant (platform,
+// reseller, or leaf) that has been granted a module can act on it for
+// itself; reaching into a *different* tenant is authorized separately via
+// the tenant hierarchy (see tenant.service.isAncestorOf).
+export async function hasModulePermission(
+  tenantId: bigint,
+  userId: bigint,
+  moduleName: string,
+  actionName: string,
+): Promise<boolean> {
+  if (!(await tenantCanUseModule(tenantId, moduleName))) return false;
+  return userHasPermission(userId, moduleName, actionName);
 }

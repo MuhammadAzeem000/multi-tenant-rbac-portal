@@ -1,11 +1,13 @@
 import "../utils/bigint";
 import { prisma } from "../config/prisma";
 import { provisionTenant } from "../services/tenantProvisioning.service";
+import { __resetPlatformTenantCache } from "../services/platformAuth.service";
 import * as tenantService from "../services/tenant.service";
 import * as userService from "../services/user.service";
 
 jest.mock("../config/prisma", () => ({
   prisma: {
+    tenant: { findFirst: jest.fn() },
     module: { findFirst: jest.fn(), create: jest.fn() },
     action: { findFirst: jest.fn(), create: jest.fn() },
     permission: { create: jest.fn() },
@@ -20,6 +22,7 @@ jest.mock("../services/tenant.service");
 jest.mock("../services/user.service");
 
 const mockedPrisma = prisma as unknown as {
+  tenant: { findFirst: jest.Mock };
   module: { findFirst: jest.Mock; create: jest.Mock };
   action: { findFirst: jest.Mock; create: jest.Mock };
   permission: { create: jest.Mock };
@@ -29,8 +32,13 @@ const mockedPrisma = prisma as unknown as {
   userRole: { create: jest.Mock };
 };
 
+beforeEach(() => {
+  __resetPlatformTenantCache();
+});
+
 describe("provisionTenant", () => {
-  it("creates modules, actions, tenant, permissions, an admin role, and the admin user", async () => {
+  it("creates modules, actions, tenant, permissions, an admin role, and the admin user, as a child of the platform tenant", async () => {
+    mockedPrisma.tenant.findFirst.mockResolvedValue({ id: 1n });
     mockedPrisma.module.findFirst.mockResolvedValue(null);
     mockedPrisma.module.create.mockImplementation(({ data }: { data: { name: string } }) =>
       Promise.resolve({ id: BigInt(`1${data.name.length}`), ...data }),
@@ -54,10 +62,13 @@ describe("provisionTenant", () => {
       adminPassword: "supersecret",
     });
 
-    expect(tenantService.createTenant).toHaveBeenCalledWith({
-      name: "Acme Corp",
-      domain: "acme.test",
-    });
+    expect(tenantService.createTenant).toHaveBeenCalledWith(
+      {
+        name: "Acme Corp",
+        domain: "acme.test",
+      },
+      1n,
+    );
     expect(mockedPrisma.module.create).toHaveBeenCalledTimes(7);
     expect(mockedPrisma.action.create).toHaveBeenCalledTimes(4);
     expect(mockedPrisma.permission.create).toHaveBeenCalledTimes(28);
