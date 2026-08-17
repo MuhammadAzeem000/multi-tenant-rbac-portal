@@ -4,6 +4,7 @@ import { createTenantSchema, tenantListQuerySchema, updateTenantSchema } from ".
 import * as auditLogService from "../services/auditLog.service";
 import * as platformAuthService from "../services/platformAuth.service";
 import { PLATFORM_MODULES } from "../services/platformAuth.service";
+import * as tenantProvisioningService from "../services/tenantProvisioning.service";
 import * as tenantService from "../services/tenant.service";
 import { parseBigIntId, parseQuery } from "../utils";
 
@@ -65,11 +66,23 @@ export async function createTenant(req: Request, res: Response) {
     return;
   }
 
+  const { adminName, adminEmailLocalPart, adminPassword, ...tenantInput } = result.data;
+
   // The new tenant's parent is always the creating admin's own tenant —
   // never client-supplied. This is what makes "any parent tenant's own
   // admins can create children" work: creating under yourself needs no
   // extra reach check, unlike touching an *existing* tenant.
-  const tenant = await tenantService.createTenant(result.data, req.auth!.tenantId);
+  const tenant = await tenantService.createTenant(tenantInput, req.auth!.tenantId);
+
+  // Every tenant needs at least one admin to be reachable at all — this
+  // grants an "Administrator" role covering whatever modules the tenant just
+  // inherited from its parent, and creates the first user under it.
+  await tenantProvisioningService.provisionAdminForTenant({
+    tenantId: tenant.id,
+    adminName,
+    adminEmailLocalPart,
+    adminPassword,
+  });
 
   await auditLogService.recordAuditLog({
     actorUserId: req.auth!.userId,

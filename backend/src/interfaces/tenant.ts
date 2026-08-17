@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "./pagination";
+import { emailLocalPartSchema } from "./user";
 
 export const tenantListQuerySchema = paginationQuerySchema.extend({
   search: z.string().trim().min(1).max(255).optional(),
@@ -22,14 +23,24 @@ export const createTenantSchema = z.object({
   name: z.string().trim().min(1).max(150),
   domain: domainSchema,
   description: z.string().trim().optional(),
+  // The tenant's first user — every tenant needs at least one admin to be
+  // reachable at all, so these are required at creation time.
+  adminName: z.string().trim().min(1).max(150),
+  adminEmailLocalPart: emailLocalPartSchema,
+  adminPassword: z.string().min(8).max(255),
   settings: z.record(z.string(), z.unknown()).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const updateTenantSchema = createTenantSchema.partial().extend({
-  status: z.string().trim().max(30).optional(),
-  isActive: z.boolean().optional(),
-});
+// Editing a tenant never touches its admin — those fields only ever apply
+// once, at creation.
+export const updateTenantSchema = createTenantSchema
+  .omit({ adminName: true, adminEmailLocalPart: true, adminPassword: true })
+  .partial()
+  .extend({
+    status: z.string().trim().max(30).optional(),
+    isActive: z.boolean().optional(),
+  });
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;

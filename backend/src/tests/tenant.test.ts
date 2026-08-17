@@ -3,7 +3,10 @@ import { Request, Response } from "express";
 import * as tenantController from "../controllers/tenant.controller";
 import { prisma } from "../config/prisma";
 import * as tenantService from "../services/tenant.service";
+import * as tenantProvisioningService from "../services/tenantProvisioning.service";
 import { __resetPlatformTenantCache } from "../services/platformAuth.service";
+
+jest.mock("../services/tenantProvisioning.service");
 
 jest.mock("../config/prisma", () => ({
   prisma: {
@@ -234,10 +237,30 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
   });
 
-  it("createTenant creates the tenant as a child of the caller's own tenant and records an audit log entry", async () => {
-    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+  it("createTenant responds 400 when the admin fields are missing", async () => {
     const req = {
       body: { name: "Acme", domain: "acme.com" },
+      auth: { userId: 9n, tenantId: 5n, email: "alice@platform.internal" },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await tenantController.createTenant(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mockedPrisma.tenant.create).not.toHaveBeenCalled();
+  });
+
+  it("createTenant creates the tenant and its admin user as a child of the caller's own tenant, and records an audit log entry", async () => {
+    mockedPrisma.tenant.create.mockResolvedValue({ id: 1n });
+    (tenantProvisioningService.provisionAdminForTenant as jest.Mock).mockResolvedValue({ id: 3n });
+    const req = {
+      body: {
+        name: "Acme",
+        domain: "acme.com",
+        adminName: "Alice Admin",
+        adminEmailLocalPart: "alice",
+        adminPassword: "supersecret",
+      },
       auth: { userId: 9n, tenantId: 5n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();
@@ -247,6 +270,17 @@ describe("tenant.controller", () => {
     expect(mockedPrisma.tenant.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ parentTenantId: 5n }) }),
     );
+    // Admin fields never leak into the Tenant row itself.
+    const tenantData = mockedPrisma.tenant.create.mock.calls[0][0].data;
+    expect(tenantData).not.toHaveProperty("adminName");
+    expect(tenantData).not.toHaveProperty("adminEmailLocalPart");
+    expect(tenantData).not.toHaveProperty("adminPassword");
+    expect(tenantProvisioningService.provisionAdminForTenant).toHaveBeenCalledWith({
+      tenantId: 1n,
+      adminName: "Alice Admin",
+      adminEmailLocalPart: "alice",
+      adminPassword: "supersecret",
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(mockedPrisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "tenant.create" }) }),
@@ -255,7 +289,13 @@ describe("tenant.controller", () => {
 
   it("createTenant rejects a malformed domain", async () => {
     const req = {
-      body: { name: "Acme", domain: "not a domain" },
+      body: {
+        name: "Acme",
+        domain: "not a domain",
+        adminName: "Alice Admin",
+        adminEmailLocalPart: "alice",
+        adminPassword: "supersecret",
+      },
       auth: { userId: 9n, tenantId: 5n, email: "alice@platform.internal" },
     } as unknown as Request;
     const res = mockRes();

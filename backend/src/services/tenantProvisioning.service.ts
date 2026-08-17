@@ -35,6 +35,13 @@ export interface ProvisionTenantResult {
   user: UserResponse;
 }
 
+export interface ProvisionAdminInput {
+  tenantId: bigint;
+  adminName: string;
+  adminEmailLocalPart: string;
+  adminPassword: string;
+}
+
 // Modules/Actions are global and shared across tenants — Module/Action have no
 // unique key besides id, so re-runs find-or-create by name instead of upserting.
 async function findOrCreateModule(input: { name: string; sortOrder: number }) {
@@ -114,4 +121,68 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
   });
 
   return { tenant, user };
+}
+
+/**
+ * Gives an already-created tenant its first user, with an "Administrator"
+ * role covering every module the tenant currently has enabled — not a fixed
+ * list, since a tenant created under a parent (POST /tenants) only ever has
+ * whatever the parent-cascade granted it (see tenantModule.service).
+ *
+ * Used for tenants created by an existing admin (as opposed to public
+ * self-registration, which provisions its own curated module set via
+ * provisionTenant above).
+ */
+export async function provisionAdminForTenant(input: ProvisionAdminInput): Promise<UserResponse> {
+  const actions = await Promise.all(ACTIONS.map(findOrCreateAction));
+
+  const enabledModules = await prisma.tenantModule.findMany({
+    where: { tenantId: input.tenantId, isEnabled: true },
+    select: { module: { select: { id: true, name: true } } },
+  });
+
+  const permissions = await Promise.all(
+    enabledModules.flatMap(({ module }) =>
+      actions.map((action) =>
+        prisma.permission.create({
+          data: {
+            tenantId: input.tenantId,
+            moduleId: module.id,
+            actionId: action.id,
+            name: `${action.name} ${module.name}`,
+          },
+        }),
+      ),
+    ),
+  );
+
+  const role = await prisma.role.create({
+    data: {
+      tenantId: input.tenantId,
+      name: "Administrator",
+      description: "Full access to every module and action.",
+      isSystem: true,
+    },
+  });
+
+  await prisma.rolePermission.createMany({
+    data: permissions.map((permission) => ({
+      tenantId: input.tenantId,
+      roleId: role.id,
+      permissionId: permission.id,
+    })),
+  });
+
+  const user = await userService.createUser({
+    tenantId: input.tenantId,
+    name: input.adminName,
+    emailLocalPart: input.adminEmailLocalPart,
+    password: input.adminPassword,
+  });
+
+  await prisma.userRole.create({
+    data: { tenantId: input.tenantId, userId: user.id, roleId: role.id },
+  });
+
+  return user;
 }

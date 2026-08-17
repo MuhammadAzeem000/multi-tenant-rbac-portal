@@ -18,9 +18,16 @@ export interface CreateTenantInput {
   name: string
   domain: string
   description?: string
+  // The tenant's first user — required at creation, never used on update.
+  adminName: string
+  adminEmailLocalPart: string
+  adminPassword: string
 }
 
-export interface UpdateTenantInput extends Partial<CreateTenantInput> {
+export interface UpdateTenantInput {
+  name?: string
+  domain?: string
+  description?: string
   status?: string
   isActive?: boolean
 }

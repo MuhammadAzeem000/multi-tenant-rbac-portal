@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/errors'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/stores/toastStore'
 import type { Tenant } from '@/types/tenant'
+import { NewTenantForm, NewTenantFormFooter } from './NewTenantForm'
 import { TenantForm, TenantFormFooter } from './TenantForm'
 import type { TenantFormValues } from './TenantForm'
 
@@ -206,21 +207,30 @@ export function TenantsListPage() {
         onClose={() => setDrawerTenant(null)}
         title={isEditing ? 'Edit tenant' : 'New tenant'}
         footer={
-          <TenantFormFooter
-            formId={formId}
-            saving={createMutation.isPending || updateMutation.isPending}
-            onCancel={() => setDrawerTenant(null)}
-          />
+          isEditing ? (
+            <TenantFormFooter
+              formId={formId}
+              saving={updateMutation.isPending}
+              onCancel={() => setDrawerTenant(null)}
+            />
+          ) : (
+            <NewTenantFormFooter
+              formId={formId}
+              saving={createMutation.isPending}
+              onCancel={() => setDrawerTenant(null)}
+            />
+          )
         }
       >
-        <TenantForm
-          formId={formId}
-          defaultValues={isEditing ? (drawerTenant as Tenant) : undefined}
-          onSubmit={(values) => {
-            if (isEditing) updateMutation.mutate({ id: (drawerTenant as Tenant).id, values })
-            else createMutation.mutate(values)
-          }}
-        />
+        {isEditing ? (
+          <TenantForm
+            formId={formId}
+            defaultValues={drawerTenant as Tenant}
+            onSubmit={(values: TenantFormValues) => updateMutation.mutate({ id: (drawerTenant as Tenant).id, values })}
+          />
+        ) : (
+          <NewTenantForm formId={formId} onSubmit={(values) => createMutation.mutate(values)} />
+        )}
       </Drawer>
 
       <ConfirmDialog

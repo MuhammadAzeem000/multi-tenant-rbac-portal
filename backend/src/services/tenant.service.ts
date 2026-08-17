@@ -56,8 +56,11 @@ export function getTenantById(id: bigint): Promise<TenantResponse | null> {
 
 // parentTenantId is never client-supplied: the caller decides it (the
 // creating admin's own tenant, or null for the one-time platform bootstrap).
+// Admin fields live on CreateTenantInput for request validation, but this
+// only ever creates the Tenant row itself — the caller provisions the admin
+// user separately (see tenantProvisioning.provisionAdminForTenant).
 export async function createTenant(
-  input: CreateTenantInput,
+  input: Omit<CreateTenantInput, "adminName" | "adminEmailLocalPart" | "adminPassword">,
   parentTenantId: bigint | null,
 ): Promise<TenantResponse> {
   const tenant = await prisma.tenant.create({
